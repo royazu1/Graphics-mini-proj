@@ -1,0 +1,359 @@
+
+
+#include <glad/glad.h>
+#include <GLFW/glfw3.h>
+#include <stdio.h>
+#include <ostream>
+#include <iostream>
+
+#include "stb_image.h"
+#include "Shader.h"
+
+
+//these headers are for mathemtical calculations (albeit for simple things you can use arrays of float and use a simple math library..)
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
+
+
+void framebuffer_size_callback(GLFWwindow* window, int width, int height);
+void mouse_callback(GLFWwindow* window, double xpos, double ypos);
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
+void keypress_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
+
+// settings
+ unsigned int SCR_WIDTH = 800;
+ unsigned int SCR_HEIGHT = 600;
+
+// camera
+glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
+glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
+glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
+
+bool firstMouse = true;
+float yaw = -90.0f;	// yaw is initialized to -90.0 degrees since a yaw of 0.0 results in a direction vector pointing to the right so we initially rotate a bit to the left.
+float pitch = 0.0f;
+float lastX = 800.0f / 2.0;
+float lastY = 600.0 / 2.0;
+float fov = 45.0f;
+
+// timing
+float deltaTime = 0.0f;	// time between current frame and last frame
+float lastFrame = 0.0f;
+
+
+int main() 
+{
+	glfwInit();
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3); //VERSION 3.3
+	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+	GLFWwindow* window = glfwCreateWindow(800, 600, "LearnOpenGL", NULL, NULL);
+
+	if (window == NULL) {
+		std::cout << "COULD NOT CREATE A WINDOW" << std::endl;
+		glfwTerminate();
+		return -1;
+	}
+	glfwMakeContextCurrent(window); //Make the window context we created CURRENT
+
+	if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress)) {
+		std::cout << "Failed to initialize GLAD" << std::endl;
+		return -1;
+	}
+
+	
+	//glViewport(400, 300, 800, 600);
+	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+
+	//set keyboard and mouse callbacks for changing camera position and orientation
+	glfwSetCursorPosCallback(window, mouse_callback); //cursor position callback for changing view matrix according to cursor movements
+	glfwSetScrollCallback(window, scroll_callback);
+	glfwSetKeyCallback(window, keypress_callback);
+
+
+
+	//initialization of rendering data
+	float vertices[] = {
+		// positions          // colors           // texture coords
+	   0.5f,  0.5f, 0.0f,   1.0f, 0.0f, 0.0f,   1.0f, 0.0f, // top right
+	   0.5f, -0.5f, 0.0f,   0.0f, 1.0f, 0.0f,   1.0f, 1.0f, // bottom right
+	  -0.5f, -0.5f, 0.0f,   0.0f, 0.0f, 1.0f,   0.0f, 1.0f, // bottom left
+	  -0.5f,  0.5f, 0.0f,   1.0f, 1.0f, 0.0f,   0.0f, 0.0f  // top left 
+	};
+
+	unsigned int indices[] = {  // note that we start from 0!
+	0, 1, 3,  // first Triangle
+	1, 2, 3   // second Triangle
+	};
+
+
+	Shader myShader = Shader("vertexShader.vs", "fragmentShader.fs");
+
+	//unsigned char* data = stbi_load("container.jpg", &width, &height, &nrChannels, 0); //loading the image data to a buffer.. 
+
+
+	unsigned int VAO;
+	glGenVertexArrays(1, &VAO); //first arg is the amount of VAO objects to create names for
+	glBindVertexArray(VAO); //EXTREMELY IMPORTANT TO NOT FORGET TO BIND!! BEFORE CONIFUGRING THE VBO'S....
+
+
+
+
+
+	unsigned int VBO;
+	glGenBuffers(1, &VBO);
+	glBindBuffer(GL_ARRAY_BUFFER, VBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW); //transfers data from CPU buffer to GPU buffer - for the currently bound buffer object.
+
+	unsigned int EBO;
+	glGenBuffers(1, &EBO);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
+	//data transfer to GPU
+
+	// position attribute
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0); //Params meaning in order: location in shader (layout) , number of components per attribute - e.g 3 for vertex color
+	//	, type of data - e.g GL_BYTE , normalize - false or true if fixed point data should be normalized, distance in bytes from attribute data of one vertex to another, pointer in the array where data begins
+	glEnableVertexAttribArray(0);
+	// color attribute
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+	glEnableVertexAttribArray(1);
+	// texture coord attribute
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+	glEnableVertexAttribArray(2);
+
+	//if the attributes are enabled, they will be a part of the drawing context for calls like DrawElements etc..
+
+
+
+
+
+	//---------------------------------
+
+	//create a Texture object, but first generate the image data using the stb_image.h  library file..
+
+	int width, height, nrChannels;
+
+	unsigned char* data = stbi_load("container.jpg", &width, &height, &nrChannels, 0); //loading the image data to a buffer.. 
+	unsigned int texture;
+	glGenTextures(1, &texture);
+	glBindTexture(GL_TEXTURE_2D, texture);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	if (data) { //if the image was succesfuly loaded, 
+		std::cout << "image1 loaded successfuly" << std::endl;
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+		glGenerateMipmap(GL_TEXTURE_2D);
+
+	}
+	else {
+		std::cout << "Failed to load texture" << std::endl;
+	}
+
+
+	stbi_image_free(data); //free the memory reserved by the loaded image data
+
+	//load the second image to create a second texture.
+
+	unsigned int texture1;
+	glGenTextures(1, &texture1);
+	glBindTexture(GL_TEXTURE_2D, texture1);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); //mipmapping is used for min filter not for magnifying
+
+	data = stbi_load("ilay.png", &width, &height, &nrChannels, 0);
+	if (data) { //if the image was succesfuly loaded, 
+		std::cout << "image2 loaded successfuly" << std::endl;
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+		glGenerateMipmap(GL_TEXTURE_2D);
+
+	}
+	else {
+		std::cout << "Failed to load texture" << std::endl;
+	}
+
+
+	//-------------------------------attaching for each uniform sampler the correct texture..
+	//ITS ESSENTIAL TO ACTIVAE useProgram() before setting uniforms for the shaders......
+	
+	/*
+		GLuint frameBuffObj;
+	glGenFramebuffers(1,&frameBuffObj);
+	glBindFramebuffer(GL_FRAMEBUFFER,frameBuffObj);
+	GLuint scene_texture;
+	glGenTextures(1, &scene_texture);
+	glBindTexture(GL_TEXTURE_2D, scene_texture);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 800, 600, 0, GL_RG8, GL_UNSIGNED_BYTE, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, scene_texture, 0);
+	
+	*/
+
+
+
+	//glUseProgram(shaderProgram); // causes the shader executables to become part of the current openGL context
+
+	//render loop
+	while (!glfwWindowShouldClose(window)) { //as long as this windows closing flag is not set
+		//if linking succeeded, we attach the shader executable to the rendering context:
+		glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+
+		glActiveTexture(GL_TEXTURE0); //??? revise: what does this function really do - it assigns a texture unit (location for the variable in shader)
+		glBindTexture(GL_TEXTURE_2D, texture); //NOTICE: THE TEXTURE SHOULD BE BOUND BEFORE ACTUALLY USING THE SHADER PROGRAM:
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_2D, texture1);
+
+		glUniform1i(glGetUniformLocation(myShader.shaderProgramID, "texture1"), 0); //uniform data should be sent to the GPU before the shaders program are used with glUseProgram()
+		glUniform1i(glGetUniformLocation(myShader.shaderProgramID, "texture2"), 1);
+
+
+		//DEFINING THE VERTEX TRANSFORMATION DATA - TO SEND TO THE VERTEX SHADER VIA A UNIFORM..
+		glm::mat4 transformationMatrix = glm::mat4(1.0f);
+		transformationMatrix = glm::translate(transformationMatrix, glm::vec3(0.5, 0.0, 0.0));
+		transformationMatrix = glm::rotate(transformationMatrix, glm::radians((float)glfwGetTime()), glm::vec3(0.0f, 0.0f, 1.0f));
+		transformationMatrix = glm::scale(transformationMatrix, glm::vec3(0.5f, 0.5f, 0.5f));
+
+		glm::mat4 transformationMatrix2 = glm::mat4(1.0f);
+		transformationMatrix2 = glm::translate(transformationMatrix2, glm::vec3(-0.5, 0.0, 0.0));
+	
+		transformationMatrix2 = glm::scale(transformationMatrix2, glm::vec3(0.5f, 0.5f, 0.5f));
+
+
+		glm::vec3 sceneLocation = glm::vec3(0.0f, 0.0f, 0.0f);
+		glm::vec3 tempUpVec = glm::vec3(0.0f, 1.0f, 0.0f);
+		glm::mat4 viewTransformMat = glm::lookAt(cameraPos, cameraPos + cameraFront, tempUpVec);
+
+		myShader.useProgram();
+		myShader.setMatrixUniform("modelMatrix", transformationMatrix);
+		myShader.setMatrixUniform("viewMatrix", viewTransformMat);
+		
+		glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 0.1f, 100.0f);
+		//glm::frustum
+		myShader.setMatrixUniform("projectionMatrix", projection);
+		glViewport(0, 0, SCR_WIDTH / 2, SCR_HEIGHT);
+		
+		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0); 
+		// in the example bellow - we use the same vertex shader, but send 2 different model transformations (model/loca view->world view) , rendering the vertices twice - each with the diffrent 
+
+		myShader.setMatrixUniform("modelMatrix", transformationMatrix2);
+
+		glViewport(SCR_WIDTH / 2, 0, SCR_WIDTH / 2, SCR_HEIGHT);
+		glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+		
+
+		glfwSwapBuffers(window); //swap buffers for the current contexted window
+		glfwPollEvents();
+		
+	}
+
+	glfwTerminate();
+	return 0;
+
+	//NOTES FOR SELF: EXERCISE 1 - TO DRAW ANOTHER TRIANGLE ADJACENT TO THE CENTRAL TRIANGLE, TO IMPLEMENT THIS THE DATA VERTICES ARRAY WAS ENLARGED AND WE INITIATED 2 CALLS TO glDrawArrays, each time using different vertices.
+	//NOTES ON EXERCISE 2: implement exercise 1 but using different vao's and vbo's: solution is to create 2 different data arrays (each corresponding to 3 different vertices), and assign each one to different VBO and VBO. then make 2 calls to glDrawArrays by binding to the 2 VAO's respectively.
+}
+
+//////////
+
+// process all input: query GLFW whether relevant keys are pressed/released this frame and react accordinglyW
+// ---------------------------------------------------------------------------------------------------------
+void keypress_callback(GLFWwindow* window,int key, int scancode, int action, int mods)
+{
+	float cameraSpeed = static_cast<float>(2.5 * 0.01);
+
+	if (action == GLFW_PRESS) {
+		switch (key)
+		{
+		case GLFW_KEY_ESCAPE:
+			glfwSetWindowShouldClose(window, true);
+		case GLFW_KEY_W:
+			cameraPos += cameraSpeed * cameraFront;
+			break;
+		case GLFW_KEY_S:
+			cameraPos -= cameraSpeed * cameraFront;
+			break;
+		case GLFW_KEY_D:
+			cameraPos += cameraSpeed * glm::cross(cameraFront, cameraUp); //note order of cross prod vecs
+			break;
+		case GLFW_KEY_A:
+			cameraPos -= cameraSpeed * glm::cross(cameraFront, cameraUp); //note order of cross prod vecs
+			break;
+		}
+
+	}
+	
+}
+
+// glfw: whenever the window size changed (by OS or user resize) this callback function executes
+// ---------------------------------------------------------------------------------------------
+void framebuffer_size_callback(GLFWwindow* window, int width, int height)
+{
+	// make sure the viewport matches the new window dimensions; note that width and 
+	// height will be significantly larger than specified on retina displays.
+	glViewport(0, 0, width, height);
+	SCR_WIDTH = width;
+	SCR_HEIGHT = height;
+}
+
+// glfw: whenever the mouse moves, this callback is called
+// -------------------------------------------------------
+void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
+{
+	float xpos = static_cast<float>(xposIn);
+	float ypos = static_cast<float>(yposIn);
+
+	if (firstMouse)
+	{
+		lastX = xpos;
+		lastY = ypos;
+		firstMouse = false;
+	}
+
+	float xoffset = xpos - lastX;
+	float yoffset = lastY - ypos; // reversed since positive offset is with clock direction i.e negative pitch
+	lastX = xpos;
+	lastY = ypos;
+
+	float sensitivity = 0.1f; // change this value to your liking
+	xoffset *= sensitivity;
+	yoffset *= sensitivity;
+
+	yaw += xoffset;
+	pitch += yoffset;
+
+	// make sure that when pitch is out of bounds, screen doesn't get flipped
+	if (pitch > 89.0f)
+		pitch = 89.0f;
+	if (pitch < -89.0f)
+		pitch = -89.0f;
+
+	glm::vec3 front;
+	front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+	front.y = sin(glm::radians(pitch));
+	front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+	cameraFront = glm::normalize(front);
+}
+
+// glfw: whenever the mouse scroll wheel scrolls, this callback is called
+// ----------------------------------------------------------------------
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
+{
+	fov -= (float)yoffset;
+	if (fov < 1.0f)
+		fov = 1.0f;
+	if (fov > 45.0f)
+		fov = 45.0f;
+}
+
+
+

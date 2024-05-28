@@ -1,0 +1,17 @@
+
+How to implement picking ???
+* Maybe use framebuffers to render the scene into first, and then after picking we can use the pixel data we saved in the texture_framebuffer to obtain the triangle that was rendered.
+
+
+Transformations:
+------------------
+* glViewport() maps the NDC of our vertices (achieved after projection and clipping), to the screen coords.
+Note that the Z value is kept for later fragment operations in the vertex shader.
+
+* Idea: apply reverse linear transformation of a screen coordinates point when mouse picking, to obtain a point in NDC. 
+
+
+
+
+
+------
