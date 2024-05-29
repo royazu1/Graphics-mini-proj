@@ -2,7 +2,7 @@
 #include "Shader.h"
 
 
-Shader::Shader(const char* vShaderPath, const char* fShaderPath): lightDir(glm::normalize(glm::vec3(-1,-1,0.1));) {
+Shader::Shader(const char* vShaderPath, const char* fShaderPath) {
 	vShaderID = -1;
 	fShaderID = -1;
 	shaderProgramID = -1;

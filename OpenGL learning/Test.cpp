@@ -41,6 +41,8 @@ float deltaTime = 0.0f;	// time between current frame and last frame
 float lastFrame = 0.0f;
 
 
+Scene scene;
+
 int main()
 {
 	glfwInit();
@@ -76,7 +78,7 @@ int main()
 
 	
 	Map myMap = Map("worldmap.png");
-	Scene scene;
+
 	myMap.create3DMeshData();
 	myMap.createMesh(0,scene); //RES is unusued for now
 	
@@ -182,15 +184,17 @@ int main()
 		myShader.setMatrixUniform("projectionMatrix", projection);
 		glViewport(SCR_WIDTH / 2, 0, SCR_WIDTH / 2, SCR_HEIGHT); //cam view rendering
 
-		scene.Draw();
+		scene.Draw(1);
 		printf("drawn\n");
 
 
 		//glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-		myShader.setMatrixUniform("camTransMatrix", glm::mat4(1.0f));
+		camSpaceTrans = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -10.0f));
+		myShader.setMatrixUniform("camTransMatrix", camSpaceTrans);
 		myShader.setMatrixUniform("projectionMatrix", projection);
-		glViewport(0, 0, SCR_WIDTH / 2, SCR_HEIGHT); //cam view rendering
-		scene.Draw();
+
+		glViewport(0, 0, SCR_WIDTH / 2, SCR_HEIGHT); //global view rendering
+		scene.Draw(0);
 
 		glfwSwapBuffers(window); //swap buffers for the current contexted window
 		glfwPollEvents();
@@ -224,12 +228,14 @@ void rotate_cam_key_callback(GLFWwindow* window, int key, int scancode, int acti
 			if (pitch < -89.0f) { pitch = -89.0f; }
 			break;
 		case GLFW_KEY_W:
-			cameraPos = cameraPos + cameraFront;
+			cameraPos = cameraPos + cameraFront; //speed
 			break;
 		case GLFW_KEY_S:
 			cameraPos = cameraPos - cameraFront;
 			break;
-
+		case GLFW_KEY_R: //record camera position and display it as a rendered point at the GLOBAL VIEW (LEFT VIEWPORT)
+			scene.addCamPosRenderVAO(cameraPos, cameraFront);
+			break;
 		}
 		
 
@@ -267,7 +273,7 @@ void keypress_callback(GLFWwindow* window, int key, int scancode, int action, in
 			cameraPos -= cameraSpeed * glm::cross(cameraFront, cameraUp); //note order of cross prod vecs
 			break;
 		}
-
+	
 	}
 
 	

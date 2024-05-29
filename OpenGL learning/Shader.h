@@ -19,7 +19,7 @@ private:
 	GLuint fShaderID;
 	bool isProgLinked;
 	std::string extractSrcCode(std::ifstream & shaderStream, std::stringstream & shaderSSstream);
-	glm::vec3 lightDir;
+	//glm::vec3 lightDir;
 
 public:
 	GLuint shaderProgramID;
@@ -31,7 +31,7 @@ public:
 	void useProgram();
 	void setMatrixUniform(const char * variableName, glm::mat4 matrix);
 	void setVec3(const char* variableName, glm::vec3 vec);
-	glm::vec3 getLightDir(){return lightDir;};
+	//glm::vec3 getLightDir(){return lightDir;};
 
 
 };

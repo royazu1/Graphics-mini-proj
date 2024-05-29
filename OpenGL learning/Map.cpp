@@ -3,6 +3,8 @@
 
 
 
+
+
 float Map::normalizeCoord(unsigned char pix_coord) //map pix coord to the normalized [-1,1] interval
 {
 	
@@ -90,8 +92,10 @@ void Map::createMesh(int res, Scene& scene)
 			glEnableVertexAttribArray(0);
 			glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(struct Vertex), (void*) (3 * sizeof(float)) ); //remember the last arg is offset in bytes!
 			glEnableVertexAttribArray(1);
+			/*
 			glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(struct Vertex), (void*)(6 * sizeof(float)));
 			glEnableVertexAttribArray(2);
+			*/
 		
 
 
@@ -159,8 +163,8 @@ void Map::create3DMeshData()
 			meshVertexData[y][x].vCoords[1] = yCoord;
 			meshVertexData[y][x].vCoords[2] = zCoord;
 			meshVertexData[y][x].vColor[0] = 1.0f;
-			meshVertexData[y][x].vColor[1] = (yCoord + 20.0f) / 40.0f;
-			meshVertexData[y][x].vColor[2] = 0.0f;
+			meshVertexData[y][x].vColor[1] = 0.3f;
+			meshVertexData[y][x].vColor[2] = 0.4f;
 
 			//printf("current vertex: x=%f ,y=%f, z=%f\n", xCoord, yCoord, zCoord);
 		}
