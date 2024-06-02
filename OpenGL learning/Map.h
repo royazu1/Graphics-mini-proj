@@ -7,9 +7,9 @@
 #include "stb_image.h"
 
 struct Vertex {
-	float vCoords[3];
-	float vColor[3];
-	float normal[3];
+	float vCoords[3];// x,y,z point
+	float vColor[3];//r,g,b
+	float normal[3];//x,y,z vec
 };
 
 class Map
