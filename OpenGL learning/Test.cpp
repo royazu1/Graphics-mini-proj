@@ -229,6 +229,13 @@ void rotate_cam_key_callback(GLFWwindow* window, int key, int scancode, int acti
 		case GLFW_KEY_S:
 			cameraPos = cameraPos - cameraFront;
 			break;
+		case GLFW_KEY_D:
+			cameraPos += glm::cross(cameraFront, cameraUp); //note order of cross prod vecs
+			break;
+		case GLFW_KEY_A:
+			cameraPos -= glm::cross(cameraFront, cameraUp); //note order of cross prod vecs
+			break;
+		
 
 		}
 		

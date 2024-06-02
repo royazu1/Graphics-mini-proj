@@ -78,8 +78,8 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <LibraryPath>C:\Users\roeea\Desktop\OpenGL Linking Dirs\Libs - OpenGL;$(LibraryPath)</LibraryPath>
-    <IncludePath>C:\Users\roeea\Desktop\OpenGL Linking Dirs\Include - OpenGL;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\Users\ilayl\Desktop\BGU\graphic proj\libs;$(LibraryPath)</LibraryPath>
+    <IncludePath>C:\Users\ilayl\Desktop\BGU\graphic proj\includes;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
@@ -142,7 +142,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\..\..\Downloads\glad\src\glad.c" />
+    <ClCompile Include="glad.c" />
     <ClCompile Include="Map.cpp" />
     <ClCompile Include="Scene.cpp" />
     <ClCompile Include="Shader.cpp" />
