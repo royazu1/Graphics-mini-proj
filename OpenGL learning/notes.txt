@@ -9,9 +9,9 @@ Transformations:
 Note that the Z value is kept for later fragment operations in the vertex shader.
 
 * Idea: apply reverse linear transformation of a screen coordinates point when mouse picking, to obtain a point in NDC. 
-
-
-
-
-
 ------
+
+Picking:
+------------------
+* glReadBuffer(fb_reference) is used to determine from which buffer we are going to read/write from/into, in the following glReadPixel() OR glWritePixel(
+* 

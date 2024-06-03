@@ -31,6 +31,7 @@ public:
 	void useProgram();
 	void setMatrixUniform(const char * variableName, glm::mat4 matrix);
 	void setVec3(const char* variableName, glm::vec3 vec);
+	void setIntegerUniform(const char* variableName, int val);
 	//glm::vec3 getLightDir(){return lightDir;};
 
 

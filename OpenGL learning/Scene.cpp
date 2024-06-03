@@ -5,10 +5,13 @@
 
 Scene::Scene() {
 	vecSize = 0;
+	toggleIndex = 0;
+	isToggled = false;
 }
 
-void Scene::Draw(int type) // 0 for global view, 1 for cam view
+void Scene::Draw(int type, Shader & drawingShader) // 0 for global view, 1 for cam view
 {
+	
 	for (int i = 0; i < VAO_vec.size();i++) {
 		unsigned int currVAO = VAO_vec[i];
 		glBindVertexArray(currVAO);
@@ -18,12 +21,20 @@ void Scene::Draw(int type) // 0 for global view, 1 for cam view
 	}
 
 	glPointSize(10.0);//
-	for (int j = 0; j < camRenderVAOs.size() ; j++) {
+	for (int j = 0; j < camRenderVAOs.size() && type == GLOBAL_VIEW; j++) { //draw only in global view
 		unsigned int currCamPosVao = camRenderVAOs[j];
 		glBindVertexArray(currCamPosVao);
-		//glDrawArrays(GL_POINTS, 0, 3);
-		glDrawArrays(GL_TRIANGLES, 0, 3);
-		glBindVertexArray(0);
+		if (j != toggleIndex) {
+			//glDrawArrays(GL_POINTS, 0, 3);
+			glDrawArrays(GL_TRIANGLES, 0, 3);
+		}
+		else if (isToggled) {
+			drawingShader.setIntegerUniform("toggledFrag", 1);
+			glDrawArrays(GL_TRIANGLES, 0, 3);
+			drawingShader.setIntegerUniform("toggledFrag", 0);
+		}
+
+		glBindVertexArray(0); //
 
 	}
 }
@@ -36,26 +47,37 @@ void Scene::addVAOconfig(unsigned int vaoRef)
 
 void Scene::addCamPosRenderVAO(glm::vec3 & cameraPos, glm::vec3 & cameraFrontVec) //make a pefect triangle with camera pos at the front vertex
 {
-	glm::vec3 fakeUpVec=glm::vec3(0.0f, 1.0f, 0.0f);
-	glm::vec3 rightVec = glm::cross(cameraFrontVec, fakeUpVec);
-	glm::vec3 realUpVec =glm::normalize( glm::cross(cameraFrontVec, rightVec));
 
-	glm::vec4 toRightVerDir =glm::normalize( glm::rotate(glm::mat4(1.0f), glm::radians(30.0f), rightVec) * glm::vec4(realUpVec,1.0f) );
+	//store cam snapshot data in the vector
+	struct camSnapshotData * currCamSnap= new struct camSnapshotData;
+	currCamSnap->camDirection = cameraFrontVec;
+	currCamSnap->cameraPos = cameraPos;
+	camSnapshotsVec.push_back(currCamSnap);
+	//
+
+	//x,y,z right handed coord system
+	glm::vec3 fakeUpVec=glm::vec3(0.0f, 1.0f, 0.0f);
+	glm::vec3 rightVec = glm::cross(fakeUpVec, cameraFrontVec); //right hand rule
+	glm::vec3 realUpVec =glm::normalize( glm::cross(cameraFrontVec, rightVec)); //right hand rule
+
+	glm::vec4 toRightVerDir =glm::normalize( glm::rotate(glm::mat4(1.0f), glm::radians(-30.0f), realUpVec) * glm::vec4(cameraFrontVec,1.0f) );
 	glm::vec3 toRightPoint = glm::vec3(toRightVerDir);
-	float mult =1.0f / glm::cos(glm::degrees(30.0f));
+	float mult =1.0f / glm::cos(glm::radians(30.0f));
 	glm::vec3 rightVertexTriangle = cameraPos + (toRightPoint * mult);
 
-	glm::vec4 toLeftVerDir = glm::normalize(glm::rotate(glm::mat4(1.0f), glm::radians(-30.0f), rightVec) * glm::vec4(realUpVec, 1.0f));
+	glm::vec4 toLeftVerDir = glm::normalize(glm::rotate(glm::mat4(1.0f), glm::radians(30.0f), realUpVec) * glm::vec4(cameraFrontVec, 1.0f));
 	glm::vec3 toLeftPoint = glm::vec3(toLeftVerDir);
 	glm::vec3 leftVertexTriangle= cameraPos + (toLeftPoint * mult);
 
 
 
 	glm::vec3 blueColorVec = glm::vec3(0.0f, 0.0f, 1.0f);
+	glm::vec3 greenColVec = glm::vec3(0.0f, 1.0f, 0.0f);
 	struct Vertex camVertexData[3];
 	storeVertexData(&camVertexData[0], cameraPos, blueColorVec);
-	storeVertexData(&camVertexData[1], rightVertexTriangle, blueColorVec);
-	storeVertexData(&camVertexData[2], leftVertexTriangle, blueColorVec);
+	storeVertexData(&camVertexData[1], rightVertexTriangle, greenColVec);
+	storeVertexData(&camVertexData[2], leftVertexTriangle, greenColVec);
+
 
 	GLuint camVao;
 	glGenVertexArrays(1, &camVao);
@@ -75,6 +97,25 @@ void Scene::addCamPosRenderVAO(glm::vec3 & cameraPos, glm::vec3 & cameraFrontVec
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 	this->camRenderVAOs.push_back(camVao);
+}
+
+void Scene::incToggleIndex()
+{
+	toggleIndex = (toggleIndex + 1) % camSnapshotsVec.size();
+}
+
+void Scene::flipToggleState()
+{
+	isToggled = !isToggled;
+}
+
+std::vector<struct camSnapshotData*> Scene::getCamVec() {
+	return this->camSnapshotsVec;
+}
+
+int Scene::getToggleIndex()
+{
+	return toggleIndex;
 }
 
 void Scene::storeVertexData(Vertex* vertex, glm::vec3 pos, glm::vec3 color)

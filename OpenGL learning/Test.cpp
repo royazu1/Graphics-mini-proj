@@ -20,6 +20,8 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void keypress_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 void rotate_cam_key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
+void mouse_picking_callback(GLFWwindow* window, int button, int action, int mods);
+void mouse_cursor_picking_callback(GLFWwindow* window, double xposIn, double yposIn);
 // settings
 unsigned int SCR_WIDTH = 800;
 unsigned int SCR_HEIGHT = 600;
@@ -29,22 +31,38 @@ glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 20.0f);
 glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
+glm::vec3 oldCameraPos; //this is to backup the camera-pos before we entered toggle mode
+glm::vec3 oldCameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
+
+
 bool firstMouse = true;
 float yaw = -90.0f;	// yaw is initialized to -90.0 degrees since a yaw of 0.0 results in a direction vector pointing to the right so we initially rotate a bit to the left.
 float pitch = 0.0f;
 float lastX = 800.0f / 2.0;
 float lastY = 600.0 / 2.0;
 float fov = 45.0f;
+std::vector<glm::uvec2> pickedPosVec;
+
+bool isToggled = false;
 
 // timing
 float deltaTime = 0.0f;	// time between current frame and last frame
 float lastFrame = 0.0f;
 
+int pickingX=-1;
+int pickingY=-1;
 
 Scene scene;
 
+bool pixelPicked = false;
+glm::uvec2 pickedPos;
+int picked = 0;
+
+
 int main()
 {
+	
+
 	glfwInit();
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3); //VERSION 3.3
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -67,107 +85,53 @@ int main()
 	
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 	glfwSetKeyCallback(window, rotate_cam_key_callback);
+	//glfwSetMouseButtonCallback(window, mouse_picking_callback);
+
+	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL); //REMOVE AFTER DEBUGGING
 	//----------------------------------------------------------------------------------------------------------------INIT 
 	//set keyboard and mouse callbacks for changing camera position and orientation
-//	glfwSetCursorPosCallback(window, mouse_callback); //cursor position callback for changing view matrix according to cursor movements
+	//glfwSetCursorPosCallback(window, mouse_callback); //cursor position callback for changing view matrix according to cursor movements
 	//glfwSetScrollCallback(window, scroll_callback);
 	//glfwSetKeyCallback(window, keypress_callback);
-
+	glfwSetCursorPosCallback(window, mouse_cursor_picking_callback);
 	Shader myShader = Shader("testVertexShader.vs", "testFragShader.fs");
 	
 
 	
-	Map myMap = Map("worldmap.png");
+	Map myMap = Map("heatmap.jpg");
 
 	myMap.create3DMeshData();
 	myMap.createMesh(0,scene); //RES is unusued for now
 	
-
+	glm::vec3 pickedColorArr[3];
+	pickedColorArr[0] = glm::vec3(1.0f, 0.3f, 0.0f);
+	pickedColorArr[1] = glm::vec3(0.0f, 1.0f, 0.0f);
+	pickedColorArr[2] = glm::vec3(0.0f, 0.0f, 1.0f);
 	/*
 	
-	struct vertex {
-		float position[3];
-		float color[3];
-	};
+	
 
-	struct vertex v1;
-	v1.position[0] = 0.5f;
-	v1.position[1] = 0.5f;
-	v1.position[2] = 0.0f;
+	GLuint frameBuffObj; //fbo ref
+	glGenFramebuffers(1,&frameBuffObj);
+	glBindFramebuffer(GL_FRAMEBUFFER,frameBuffObj); //bound for reading and writing
+	GLuint scene_texture; //texture ref
+	glGenTextures(1, &scene_texture);
+	glBindTexture(GL_TEXTURE_2D, scene_texture);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, SCR_WIDTH, SCR_HEIGHT, 0, GL_RG8, GL_UNSIGNED_BYTE, NULL); // the kind of data the framebuffer objects texture will hold
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-	v1.color[0] = 1.0f;
-	v1.color[1] = 0.0f;
-	v1.color[2] = 0.0f;
-
-
-	struct vertex v2;
-	v2.position[0] = -0.5f;
-	v2.position[1] = 0.5f;
-	v2.position[2] = 0.0f;
-	v2.color[0] = 1.0f;
-	v2.color[1] = 0.0f;
-	v2.color[2] = 0.0f;
-
-	struct vertex v3;
-	v3.position[0] = 0.2f;
-	v3.position[1] = 0.0f;
-	v3.position[2] = 0.0f;
-	v3.color[0] = 1.0f;
-	v3.color[1] = 0.0f;
-	v3.color[2] = 0.0f;
-
-	struct vertex v4;
-	v4.position[0] = -0.2f;
-	v4.position[1] = 0.0f;
-	v4.position[2] = 0.0f;
-	v4.color[0] = 1.0f;
-	v4.color[1] = 0.0f;
-	v4.color[2] = 0.0f;
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, scene_texture, 0);
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	//we first render into the FBO bound texture, then to the default framebuffer
 
 
-	struct vertex vArr[4];
-	vArr[0] = v1;
-	vArr[1] = v2;
-	vArr[2] = v3;
-	vArr[3] = v4;
-
-	float vertices[] = {
-		// positions          // colors           // texture coords
-	   0.5f,  0.5f, 0.0f,   1.0f, 0.0f, 0.0f,
-	   0.5f, -0.5f, 0.0f,   0.0f, 1.0f, 0.0f,
-	  -0.5f, -0.5f, 0.0f,   0.0f, 0.0f, 1.0f
-
-	};
-
-	int renderIndexes[] = { 0,2,1,
-						0,3,1 };
-
-
-
-	GLuint vao;
-	glGenVertexArrays(1, &vao);
-	glBindVertexArray(vao);
-	GLuint ebo;
-	glGenBuffers(1, &ebo);
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(renderIndexes), renderIndexes, GL_STATIC_DRAW);
-
-	GLuint vbo;
-	glGenBuffers(1, &vbo);
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vArr), vArr, GL_STATIC_DRAW);
-
-	printf("%d", sizeof(vArr));
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(struct vertex), (void*)0);
-	glEnableVertexAttribArray(0);
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(struct vertex), (void*)(3 * sizeof(float))); //remember the last arg is offset in bytes!
-	glEnableVertexAttribArray(1);
-
+	
 	
 	*/
 
-	//glUseProgram(shaderProgram); // causes the shader executables to become part of the current openGL context
-
+	
+	
 	//render loop
 	while (!glfwWindowShouldClose(window)) { //as long as this windows closing flag is not set
 		//if linking succeeded, we attach the shader executable to the rendering context:
@@ -176,6 +140,12 @@ int main()
 		myShader.useProgram();
 		//glBindVertexArray(vao);
 
+		if (isToggled) { //render according to currently toggled cam location
+			int idx = scene.getToggleIndex();
+			struct camSnapshotData camData= *scene.getCamVec()[idx];
+			cameraPos = camData.cameraPos;
+			cameraFront = camData.camDirection;
+		}
 
 		glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 1.0f, 100.0f);
 		glm::mat4 camSpaceTrans = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
@@ -184,9 +154,20 @@ int main()
 		myShader.setMatrixUniform("projectionMatrix", projection);
 		glViewport(SCR_WIDTH / 2, 0, SCR_WIDTH / 2, SCR_HEIGHT); //cam view rendering
 
-		scene.Draw(1);
-		printf("drawn\n");
+		scene.Draw(CAMERA_VIEW, myShader);
+		//printf("drawn\n");
 
+		if (pixelPicked) {               //draw to the pixel location that was picked by the mouse
+			for (int i = 0; i < pickedPosVec.size();i++) {
+				glm::uvec2 currPickedPos = pickedPosVec[i];
+				glm::vec3 pickedColor = pickedColorArr[i];
+				glEnable(GL_SCISSOR_TEST);
+				glScissor(currPickedPos.x, currPickedPos.y, 4, 4);
+				glClearColor(pickedColor.r, pickedColor.g, pickedColor.b, 1.0f);
+				glClear(GL_COLOR_BUFFER_BIT);
+				glDisable(GL_SCISSOR_TEST);
+			}
+		}
 
 		//glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 		camSpaceTrans = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -10.0f));
@@ -194,7 +175,7 @@ int main()
 		myShader.setMatrixUniform("projectionMatrix", projection);
 
 		glViewport(0, 0, SCR_WIDTH / 2, SCR_HEIGHT); //global view rendering
-		scene.Draw(0);
+		scene.Draw(GLOBAL_VIEW, myShader);
 
 		glfwSwapBuffers(window); //swap buffers for the current contexted window
 		glfwPollEvents();
@@ -206,13 +187,46 @@ int main()
 
 }
 
+void mouse_picking_callback(GLFWwindow* window, int button, int action, int mods) {	
+	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+		double xCoord = 0, yCoord = 0;
+		glfwGetCursorPos(window, &xCoord, &yCoord); //here we query the recent cursor position (x,y) coords
+		pickingX = (int)xCoord;
+		pickingY = (int)yCoord;
+		if (pickingX < 0 || pickingY < 0) {
+			printf("Negative window coord.. something is wrong here");
+			return;
+		}
+		else if (pickingX <= SCR_WIDTH / 2) {
+			printf("Can pick only in cam view for now!");
+			return;
+		}
 
+		glReadBuffer(GL_FRONT); //YOU SHOULD CHECK WHAT IS THE CORRECT TARGET OF THE COLOR BUFFER TO READ FROM
+
+		float color_chans[3];
+		glReadPixels(xCoord, yCoord, SCR_WIDTH, SCR_HEIGHT, GL_RGB, GL_FLOAT, color_chans);
+		printf("The picked pixel colors are: r=%c , g=%c, b=%c", color_chans[0], color_chans[1], color_chans[2]);
+		glReadBuffer(0);
+		//which framebuffer to read from??
+		//glReadBuffer
+
+	}
+
+
+}
 
 void rotate_cam_key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
 	if (action == GLFW_PRESS) {
 		switch (key) {
-		case GLFW_KEY_RIGHT: //perform yaw - clockwise say 6 degrees
-			yaw += 6.0f;
+		case GLFW_KEY_RIGHT: //perform yaw - clockwise say 6 degrees or if toggle is enabled, move between the camera poses
+			if (isToggled) {
+				scene.incToggleIndex();
+			}
+			else {
+				yaw += 6.0f;
+			}
+
 		//	if (yaw >= 89.0f) { yaw = 89.0f; }
 			break;
 		case GLFW_KEY_LEFT: //perform yaw - counter-clockwise
@@ -236,7 +250,19 @@ void rotate_cam_key_callback(GLFWwindow* window, int key, int scancode, int acti
 		case GLFW_KEY_R: //record camera position and display it as a rendered point at the GLOBAL VIEW (LEFT VIEWPORT)
 			scene.addCamPosRenderVAO(cameraPos, cameraFront);
 			break;
+		case GLFW_KEY_T:
+			isToggled = !isToggled; //flip toggle status
+			if (isToggled) {
+				oldCameraPos = cameraPos;
+				oldCameraFront = cameraFront;
+			}
+			else { //toggle mode is disabled - restore the oldest camera config in cam-view before toggle was initiated.
+				cameraPos = oldCameraPos;
+				oldCameraFront = cameraFront;
+			}
+			scene.flipToggleState();
 		}
+		
 		
 
 	}
@@ -248,6 +274,48 @@ void rotate_cam_key_callback(GLFWwindow* window, int key, int scancode, int acti
 	cameraFront = glm::normalize(front);
 
 }
+
+
+void mouse_cursor_picking_callback(GLFWwindow* window, double pickingX, double pickingY) {
+	if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
+		if (pickingX < 0 || pickingY < 0) {
+			printf("Negative window coord.. something is wrong here");
+			return;
+		}
+		else if (pickingX <= SCR_WIDTH / 2) {
+			printf("Can pick only in cam view for now!");
+			return;
+		}
+
+		//glReadBuffer(GL_FRONT); //YOU SHOULD CHECK WHAT IS THE CORRECT TARGET OF THE COLOR BUFFER TO READ FROM
+
+		unsigned char color_chans[4];
+		int pixX = (int)pickingX;
+		int pixY = (int)pickingY;
+		glReadPixels(pixX, SCR_HEIGHT - pixY, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, color_chans);
+		printf("The picked pixel colors are: r=%d , g=%d, b=%d", (int)color_chans[0], (int)color_chans[1], (int)color_chans[2]);
+		
+		pixelPicked = true;
+		pickedPos.x = pixX;
+		pickedPos.y = SCR_HEIGHT - pixY;
+
+		pickedPosVec.push_back(glm::uvec2(pickedPos.x, pickedPos.y));
+		
+		picked++;
+		if (picked > 3) {
+			picked = 0;
+			pixelPicked = false;
+			return; //pick exactly 3 - for now..
+		}
+		
+		//glReadBuffer(0);
+		//which framebuffer to read from??
+		//glReadBuffer
+
+	}
+}
+
+
 
 // process all input: query GLFW whether relevant keys are pressed/released this frame and react accordinglyW
 // ---------------------------------------------------------------------------------------------------------
@@ -296,6 +364,8 @@ void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
 {
 	float xpos = static_cast<float>(xposIn);
 	float ypos = static_cast<float>(yposIn);
+
+
 
 	if (firstMouse)
 	{

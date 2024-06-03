@@ -160,6 +160,7 @@
     <Image Include="..\..\..\..\Desktop\topomap.png" />
     <Image Include="awesomeface.png" />
     <Image Include="container.jpg" />
+    <Image Include="heatmap.jpg" />
     <Image Include="ilay.png" />
     <Image Include="ilay1.jpg" />
   </ItemGroup>
@@ -173,6 +174,7 @@
     <None Include="fragmentShader.fs" />
     <None Include="testFragShader.fs" />
     <None Include="testVertexShader.vs" />
+    <None Include="toggleFragShader.vs" />
     <None Include="vertexShader.vs" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

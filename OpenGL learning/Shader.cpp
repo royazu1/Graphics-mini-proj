@@ -93,6 +93,11 @@ std::string Shader::extractSrcCode(std::ifstream& shaderStream, std::stringstrea
 	return srcCodeString;
 }
 
+void Shader::setIntegerUniform(const char* variableName, int val) {
+	glUniform1i(glGetUniformLocation(shaderProgramID, variableName), val);
+}
+
+
 
 void  Shader::setMatrixUniform(const char * variableName,glm::mat4 matrix) {
 	glUniformMatrix4fv(glGetUniformLocation(shaderProgramID, variableName), 1, GL_FALSE, glm::value_ptr(matrix)); //query location the send that data, program object should be bound by then.

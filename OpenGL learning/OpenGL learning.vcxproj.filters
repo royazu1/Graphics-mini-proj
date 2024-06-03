@@ -67,6 +67,9 @@
     <Image Include="..\..\..\..\Desktop\topomap.png">
       <Filter>Source Files</Filter>
     </Image>
+    <Image Include="heatmap.jpg">
+      <Filter>Source Files</Filter>
+    </Image>
   </ItemGroup>
   <ItemGroup>
     <Text Include="backup.txt" />
@@ -79,5 +82,6 @@
     <None Include="vertexShader.vs" />
     <None Include="testVertexShader.vs" />
     <None Include="testFragShader.fs" />
+    <None Include="toggleFragShader.vs" />
   </ItemGroup>
 </Project>

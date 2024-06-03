@@ -12,17 +12,29 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/normal.hpp>
 
-
+#include "Shader.h"
 
 typedef std::string str;
 
 
+struct camSnapshotData {
+	glm::vec3 cameraPos;
+	glm::vec3 camDirection;
+};
 
 struct Vertex {
 	float vCoords[3];
 	float vColor[3];
 	//	float normal[3];
 };
+
+
+enum viewTypes
+{
+	GLOBAL_VIEW = 0,
+	CAMERA_VIEW = 1
+};
+
 
 class Scene
 {
@@ -32,16 +44,23 @@ public:
 	//void load2DMap(str filePath);
 	//void makeHeightMap();
 	//void setUpSplitScrean();
-	void Draw(int type);
+	void Draw(int type, Shader & drawingShader);
 	//void record();
 	void addVAOconfig(unsigned int vaoRef); //add a VAO object ref to the vao_vec vector, to be used at render call
 	void addCamPosRenderVAO(glm::vec3 &cameraPos, glm::vec3& cameraFrontVec);
-
+	void incToggleIndex();
+	void flipToggleState();
+	std::vector<struct camSnapshotData*> getCamVec();
+	int getToggleIndex();
 private:
 	//Camera cam;
 	std::vector<unsigned int> VAO_vec;
 	std::vector<unsigned int> camRenderVAOs;
 	int vecSize;
 	void storeVertexData(struct Vertex* vertex, glm::vec3 pos, glm::vec3 color);
+	bool isToggled;
+	int toggleIndex;
+	//Shader toggleShader;
+	std::vector<struct camSnapshotData*> camSnapshotsVec;
 };
 
