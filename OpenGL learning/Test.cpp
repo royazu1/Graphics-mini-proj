@@ -14,7 +14,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-
+#define DONE_PICKING 3
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
@@ -40,6 +40,9 @@ float fov = 45.0f;
 float deltaTime = 0.0f;	// time between current frame and last frame
 float lastFrame = 0.0f;
 
+//picking
+char isPicking = 0;
+glm::vec2 picks[2] = {};
 
 int main()
 {
@@ -235,8 +238,9 @@ void rotate_cam_key_callback(GLFWwindow* window, int key, int scancode, int acti
 		case GLFW_KEY_A:
 			cameraPos -= glm::cross(cameraFront, cameraUp); //note order of cross prod vecs
 			break;
-		
-
+		case GLFW_KEY_P:
+			isPicking = 1;
+			break;
 		}
 		
 
@@ -304,7 +308,14 @@ void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
 		lastY = ypos;
 		firstMouse = false;
 	}
-
+	if (isPicking) // start by save 2D cordinants on the screen
+	{
+		picks[isPicking - 1].x = xpos;
+		picks[isPicking - 1].y = ypos;
+		//todo: call function to show them on the screen
+		isPicking++;
+		if (isPicking == DONE_PICKING) isPicking = 0;
+	}
 	float xoffset = xpos - lastX;
 	float yoffset = lastY - ypos; // reversed since positive offset is with clock direction i.e negative pitch
 	lastX = xpos;
