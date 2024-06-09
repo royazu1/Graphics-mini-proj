@@ -88,11 +88,7 @@ int main()
 	//glfwSetMouseButtonCallback(window, mouse_picking_callback);
 
 	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL); //REMOVE AFTER DEBUGGING
-	//----------------------------------------------------------------------------------------------------------------INIT 
-	//set keyboard and mouse callbacks for changing camera position and orientation
-	//glfwSetCursorPosCallback(window, mouse_callback); //cursor position callback for changing view matrix according to cursor movements
-	//glfwSetScrollCallback(window, scroll_callback);
-	//glfwSetKeyCallback(window, keypress_callback);
+
 	glfwSetCursorPosCallback(window, mouse_cursor_picking_callback);
 	Shader myShader = Shader("testVertexShader.vs", "testFragShader.fs");
 	
@@ -107,28 +103,6 @@ int main()
 	pickedColorArr[0] = glm::vec3(1.0f, 0.3f, 0.0f);
 	pickedColorArr[1] = glm::vec3(0.0f, 1.0f, 0.0f);
 	pickedColorArr[2] = glm::vec3(0.0f, 0.0f, 1.0f);
-	/*
-	
-	
-
-	GLuint frameBuffObj; //fbo ref
-	glGenFramebuffers(1,&frameBuffObj);
-	glBindFramebuffer(GL_FRAMEBUFFER,frameBuffObj); //bound for reading and writing
-	GLuint scene_texture; //texture ref
-	glGenTextures(1, &scene_texture);
-	glBindTexture(GL_TEXTURE_2D, scene_texture);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, SCR_WIDTH, SCR_HEIGHT, 0, GL_RG8, GL_UNSIGNED_BYTE, NULL); // the kind of data the framebuffer objects texture will hold
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, scene_texture, 0);
-	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-	//we first render into the FBO bound texture, then to the default framebuffer
-
-
-	
-	
-	*/
 
 	
 	
