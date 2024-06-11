@@ -8,11 +8,19 @@
 #include "stb_image.h"
 #include "Shader.h"
 #include "Map.h"
-
+#include "PoseEstSolver.h"
+#include "Camera.h"
 //these headers are for mathemtical calculations (albeit for simple things you can use arrays of float and use a simple math library..)
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+
+#include <opencv2/core.hpp>
+#include <opencv2/imgcodecs.hpp>
+#include <opencv2/highgui.hpp>
+#include <opencv2/calib3d.hpp>
+
+
 
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
@@ -22,9 +30,10 @@ void keypress_callback(GLFWwindow* window, int key, int scancode, int action, in
 void rotate_cam_key_callback(GLFWwindow* window, int key, int scancode, int action, int mods);
 void mouse_picking_callback(GLFWwindow* window, int button, int action, int mods);
 void mouse_cursor_picking_callback(GLFWwindow* window, double xposIn, double yposIn);
+void cursor_pos_cv(GLFWwindow* window, double pickingX, double pickingY);
 // settings
-unsigned int SCR_WIDTH = 800;
-unsigned int SCR_HEIGHT = 600;
+ int SCR_WIDTH = 800;
+ int SCR_HEIGHT = 600;
 
 // camera
 glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 20.0f);
@@ -38,8 +47,8 @@ glm::vec3 oldCameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
 bool firstMouse = true;
 float yaw = -90.0f;	// yaw is initialized to -90.0 degrees since a yaw of 0.0 results in a direction vector pointing to the right so we initially rotate a bit to the left.
 float pitch = 0.0f;
-float lastX = 800.0f / 2.0;
-float lastY = 600.0 / 2.0;
+float lastX = (float)SCR_WIDTH / 2.0;
+float lastY = (float)600.0 / 2.0;
 float fov = 45.0f;
 std::vector<glm::uvec2> pickedPosVec;
 
@@ -55,13 +64,25 @@ int pickingY=-1;
 Scene scene;
 
 bool pixelPicked = false;
-glm::uvec2 pickedPos;
+glm::uvec2 pickedPos;    //holds the picked pixel coords 
 int picked = 0;
-
+float aspect_ratio = SCR_WIDTH / SCR_HEIGHT;
+PoseEstSolver mySolver(SCR_WIDTH, SCR_HEIGHT, -1.0f, 1.0f, aspect_ratio,-aspect_ratio,0.2f);
+//glm::mat4 projection = glm::perspective(glm::radians(60.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 1.0f, 100.0f);
+Camera camera(0.1f, 100.0f, 0.0577f, (float)SCR_WIDTH / (float)SCR_HEIGHT);
 
 int main()
 {
-	
+	/* openCV testing..
+	cv::Mat openCV_img = cv::imread("heatmap.jpg");
+	if (openCV_img.empty()) {
+		std::cout << "imread couldn't read image.." << std::endl;
+		return 1;
+	}
+	cv::imshow("heatmap", openCV_img);
+	cv::waitKey(0);
+	cv::destroyAllWindows();
+	*/
 
 	glfwInit();
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3); //VERSION 3.3
@@ -85,11 +106,10 @@ int main()
 	
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 	glfwSetKeyCallback(window, rotate_cam_key_callback);
-	//glfwSetMouseButtonCallback(window, mouse_picking_callback);
+	glfwSetMouseButtonCallback(window, mouse_picking_callback);
+	glfwSetCursorPosCallback(window, cursor_pos_cv);
 
-	glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL); //REMOVE AFTER DEBUGGING
-
-	glfwSetCursorPosCallback(window, mouse_cursor_picking_callback);
+	//glfwSetCursorPosCallback(window, mouse_cursor_picking_callback);
 	Shader myShader = Shader("testVertexShader.vs", "testFragShader.fs");
 	
 
@@ -100,7 +120,7 @@ int main()
 	myMap.createMesh(0,scene); //RES is unusued for now
 	
 	glm::vec3 pickedColorArr[3];
-	pickedColorArr[0] = glm::vec3(1.0f, 0.3f, 0.0f);
+	pickedColorArr[0] = glm::vec3(1.0f, 1.0f, 0.0f);
 	pickedColorArr[1] = glm::vec3(0.0f, 1.0f, 0.0f);
 	pickedColorArr[2] = glm::vec3(0.0f, 0.0f, 1.0f);
 
@@ -121,7 +141,8 @@ int main()
 			cameraFront = camData.camDirection;
 		}
 
-		glm::mat4 projection = glm::perspective(glm::radians(45.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 1.0f, 100.0f);
+		//glm::mat4 projection = glm::perspective(glm::radians(60.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 1.0f, 100.0f);
+		glm::mat4 projection = camera.getProjectionMatrix();
 		glm::mat4 camSpaceTrans = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
 		//glm::frustum
 		myShader.setMatrixUniform("camTransMatrix", camSpaceTrans);
@@ -163,31 +184,42 @@ int main()
 
 void mouse_picking_callback(GLFWwindow* window, int button, int action, int mods) {	
 	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
-		double xCoord = 0, yCoord = 0;
-		glfwGetCursorPos(window, &xCoord, &yCoord); //here we query the recent cursor position (x,y) coords
-		pickingX = (int)xCoord;
-		pickingY = (int)yCoord;
-		if (pickingX < 0 || pickingY < 0) {
+		pickingX = (int)lastX;
+		pickingY = (int) SCR_HEIGHT - lastY;
+		if (lastX < 0 || lastY < 0) {
 			printf("Negative window coord.. something is wrong here");
 			return;
 		}
-		else if (pickingX <= SCR_WIDTH / 2) {
-			printf("Can pick only in cam view for now!");
+		else if (pickingX > 0) {
+			printf("Picking in global view...\n");
+			//read from the depth-buffer, then call glm::unproject to attain point at world coordinates, call addPose with the 3d pose vec
+			GLuint depth_value;
+			glReadPixels(pickingX, pickingY, 1, 1, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT_24_8, &depth_value); //?? for some reason z-value is the same for all pixels
+			//mySolver.addPose()
+			printf("depth=%u\n",depth_value);
 			return;
 		}
-
-		glReadBuffer(GL_FRONT); //YOU SHOULD CHECK WHAT IS THE CORRECT TARGET OF THE COLOR BUFFER TO READ FROM
-
-		float color_chans[3];
-		glReadPixels(xCoord, yCoord, SCR_WIDTH, SCR_HEIGHT, GL_RGB, GL_FLOAT, color_chans);
-		printf("The picked pixel colors are: r=%c , g=%c, b=%c", color_chans[0], color_chans[1], color_chans[2]);
-		glReadBuffer(0);
-		//which framebuffer to read from??
-		//glReadBuffer
+		else { // pickingX > SCR_WIDTH / 2      -- picking in cam view , use addPose with a 2d vec
+			printf("Picking in cam view...\n");
+			mySolver.addPose(glm::vec2(pickingX, pickingY));
+		}
+		
+		pickedPosVec.push_back(glm::uvec2(pickingX, pickingY));
+		pixelPicked = true;
+		picked++;
+		
+	
 
 	}
 
 
+}
+void cursor_pos_cv(GLFWwindow* window, double pickingX, double pickingY) {
+	if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) != GLFW_PRESS) { //update the pos only when we are not picking
+		lastX = pickingX;
+		lastY = pickingY;
+	}
+	
 }
 
 void rotate_cam_key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
@@ -249,78 +281,6 @@ void rotate_cam_key_callback(GLFWwindow* window, int key, int scancode, int acti
 
 }
 
-
-void mouse_cursor_picking_callback(GLFWwindow* window, double pickingX, double pickingY) {
-	if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
-		if (pickingX < 0 || pickingY < 0) {
-			printf("Negative window coord.. something is wrong here");
-			return;
-		}
-		else if (pickingX <= SCR_WIDTH / 2) {
-			printf("Can pick only in cam view for now!");
-			return;
-		}
-
-		//glReadBuffer(GL_FRONT); //YOU SHOULD CHECK WHAT IS THE CORRECT TARGET OF THE COLOR BUFFER TO READ FROM
-
-		unsigned char color_chans[4];
-		int pixX = (int)pickingX;
-		int pixY = (int)pickingY;
-		glReadPixels(pixX, SCR_HEIGHT - pixY, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, color_chans);
-		printf("The picked pixel colors are: r=%d , g=%d, b=%d", (int)color_chans[0], (int)color_chans[1], (int)color_chans[2]);
-		
-		pixelPicked = true;
-		pickedPos.x = pixX;
-		pickedPos.y = SCR_HEIGHT - pixY;
-
-		pickedPosVec.push_back(glm::uvec2(pickedPos.x, pickedPos.y));
-		
-		picked++;
-		if (picked > 3) {
-			picked = 0;
-			pixelPicked = false;
-			return; //pick exactly 3 - for now..
-		}
-		
-		//glReadBuffer(0);
-		//which framebuffer to read from??
-		//glReadBuffer
-
-	}
-}
-
-
-
-// process all input: query GLFW whether relevant keys are pressed/released this frame and react accordinglyW
-// ---------------------------------------------------------------------------------------------------------
-void keypress_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
-{
-	float cameraSpeed = static_cast<float>(2.5 * 0.01);
-
-	if (action == GLFW_PRESS) {
-		switch (key)
-		{
-		case GLFW_KEY_ESCAPE:
-			glfwSetWindowShouldClose(window, true);
-		case GLFW_KEY_W:
-			cameraPos += cameraSpeed * cameraFront;
-			break;
-		case GLFW_KEY_S:
-			cameraPos -= cameraSpeed * cameraFront;
-			break;
-		case GLFW_KEY_D:
-			cameraPos += cameraSpeed * glm::cross(cameraFront, cameraUp); //note order of cross prod vecs
-			break;
-		case GLFW_KEY_A:
-			cameraPos -= cameraSpeed * glm::cross(cameraFront, cameraUp); //note order of cross prod vecs
-			break;
-		}
-	
-	}
-
-	
-}
-
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
 // ---------------------------------------------------------------------------------------------
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
@@ -332,54 +292,3 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 	SCR_HEIGHT = height;
 }
 
-// glfw: whenever the mouse moves, this callback is called
-// -------------------------------------------------------
-void mouse_callback(GLFWwindow* window, double xposIn, double yposIn)
-{
-	float xpos = static_cast<float>(xposIn);
-	float ypos = static_cast<float>(yposIn);
-
-
-
-	if (firstMouse)
-	{
-		lastX = xpos;
-		lastY = ypos;
-		firstMouse = false;
-	}
-
-	float xoffset = xpos - lastX;
-	float yoffset = lastY - ypos; // reversed since positive offset is with clock direction i.e negative pitch
-	lastX = xpos;
-	lastY = ypos;
-
-	float sensitivity = 0.1f; // change this value to your liking
-	xoffset *= sensitivity;
-	yoffset *= sensitivity;
-
-	yaw += xoffset;
-	pitch += yoffset;
-
-	// make sure that when pitch is out of bounds, screen doesn't get flipped
-	if (pitch > 89.0f)
-		pitch = 89.0f;
-	if (pitch < -89.0f)
-		pitch = -89.0f;
-
-	glm::vec3 front;
-	front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
-	front.y = sin(glm::radians(pitch));
-	front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
-	cameraFront = glm::normalize(front);
-}
-
-// glfw: whenever the mouse scroll wheel scrolls, this callback is called
-// ----------------------------------------------------------------------
-void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
-{
-	fov -= (float)yoffset;
-	if (fov < 1.0f)
-		fov = 1.0f;
-	if (fov > 45.0f)
-		fov = 45.0f;
-}
