@@ -8,7 +8,6 @@
 #include "stb_image.h"
 #include "Shader.h"
 #include "Map.h"
-#include "PoseEstSolver.h"
 #include "Camera.h"
 //these headers are for mathemtical calculations (albeit for simple things you can use arrays of float and use a simple math library..)
 #include <glm/glm.hpp>
@@ -31,10 +30,17 @@ void rotate_cam_key_callback(GLFWwindow* window, int key, int scancode, int acti
 void mouse_picking_callback(GLFWwindow* window, int button, int action, int mods);
 void mouse_cursor_picking_callback(GLFWwindow* window, double xposIn, double yposIn);
 void cursor_pos_cv(GLFWwindow* window, double pickingX, double pickingY);
+
+#define DEF_MOD 0
+#define FLIGHT_MOD 10
+#define REC_MOD 15
+#define PLAYBACK_MOD 20
+#define PICKING_MOD 25
+
 // settings
  int SCR_WIDTH = 800;
  int SCR_HEIGHT = 600;
-
+ int MODE = DEF_MOD;
 // camera
 glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 0.0f);
 glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
@@ -128,14 +134,12 @@ int main()
 		myShader.useProgram();
 		//glBindVertexArray(vao);
 
-		if (isToggled) { //render according to currently toggled cam location
+		if (isToggled || MODE == PLAYBACK_MOD) { //render according to currently toggled cam location
 			int idx = scene.getToggleIndex();
 			struct camSnapshotData camData= *scene.getCamVec()[idx];
 			cameraPos = camData.cameraPos;
 			cameraFront = camData.camDirection;
 		}
-
-
 
 		//glm::mat4 projection = glm::perspective(glm::radians(60.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 1.0f, 100.0f);
 		glm::mat4 projection = camera.getProjectionMatrix();
@@ -167,20 +171,15 @@ int main()
 				glDisable(GL_SCISSOR_TEST);
 			}
 		}
-
-
 		glfwSwapBuffers(window); //swap buffers for the current contexted window
 		glfwPollEvents();
-
 	}
-
 	glfwTerminate();
 	return 0;
-
 }
 
 void mouse_picking_callback(GLFWwindow* window, int button, int action, int mods) {	
-	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS && MODE == PICKING_MOD) {
 		pickingX = (int)lastX;
 		pickingY = (int) SCR_HEIGHT - lastY;
 		if (lastX < 0 || lastY < 0) {
@@ -205,7 +204,6 @@ void mouse_picking_callback(GLFWwindow* window, int button, int action, int mods
 				printf("Picking in cam view...\n");
 			printf("pose2d: (u,v)=(%f ,%f)\n", pickingX - (float)(SCR_WIDTH / 2), (float)pickingY);
 			mySolver.addPose(glm::vec2(pickingX - (float)(SCR_WIDTH/2), (float)pickingY));
-
 			// debug
 			/*
 			
@@ -230,10 +228,9 @@ void mouse_picking_callback(GLFWwindow* window, int button, int action, int mods
 		
 		if (mySolver.shouldSolve()) { 
 			struct poseEstimationData sol = mySolver.solve();
-
 			printf("sol-camPos: (x,y,z)=(%f,%f,%f)\n", sol.camTranslation.x, sol.camTranslation.y, sol.camTranslation.z);
 			printf("sol-camDir: (x,y,z)=(%f,%f,%f)\n", sol.camRotation.x, sol.camRotation.y, sol.camRotation.z);
-			scene.addCamPosRenderVAO(sol.camTranslation, sol.camRotation);
+			scene.addCamPosRenderVAO(sol.camTranslation, sol.camRotation);//no need
 		}
 	}
 
@@ -249,19 +246,24 @@ void cursor_pos_cv(GLFWwindow* window, double pickingX, double pickingY) {
 
 void rotate_cam_key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
 	if (action == GLFW_PRESS) {
+		int modif = glutGetModifiers(void);//GLUT_ACTIVE_SHIFT == modif
 		switch (key) {
 		case GLFW_KEY_RIGHT: //perform yaw - clockwise say 6 degrees, or if toggle is enabled, move between the camera poses
-			if (isToggled) {
+			if (MODE == PLAYBACK_MOD) {
 				scene.incToggleIndex();
 			}
 			else {
 				yaw += 6.0f;
 			}
-
 		//	if (yaw >= 89.0f) { yaw = 89.0f; }
 			break;
 		case GLFW_KEY_LEFT: //perform yaw - counter-clockwise
-			yaw -= 6.0f;
+			if (MODE == PLAYBACK_MOD) {
+				scene.decToggleIndex();
+			}
+			else {
+				yaw -= 6.0f;
+			}
 			//if (yaw <= -89.0f) { yaw = -89.0f; }
 			break;
 		case GLFW_KEY_UP:
@@ -279,9 +281,15 @@ void rotate_cam_key_callback(GLFWwindow* window, int key, int scancode, int acti
 			cameraPos = cameraPos - cameraFront;
 			break;
 		case GLFW_KEY_R: //record camera position and display it as a rendered point at the GLOBAL VIEW (LEFT VIEWPORT)
-			printf("camPos: (x,y,z)=(%f,%f,%f)\n", cameraPos.x,cameraPos.y,cameraPos.z);
-			printf("camDir: (x,y,z)=(%f,%f,%f)\n", cameraFront.x, cameraFront.y, cameraFront.z);
-			scene.addCamPosRenderVAO(cameraPos, cameraFront);
+			//printf("camPos: (x,y,z)=(%f,%f,%f)\n", cameraPos.x,cameraPos.y,cameraPos.z);
+			//printf("camDir: (x,y,z)=(%f,%f,%f)\n", cameraFront.x, cameraFront.y, cameraFront.z);
+			//scene.addCamPosRenderVAO(cameraPos, cameraFront);
+			if (GLUT_ACTIVE_SHIFT == modif ) { // Togle between poses
+				MODE = PLAYBACK_MOD;
+			}
+			else {
+				MODE = REC_MOD;
+			}
 			break;
 		case GLFW_KEY_T:
 			isToggled = !isToggled; //flip toggle status
@@ -294,10 +302,26 @@ void rotate_cam_key_callback(GLFWwindow* window, int key, int scancode, int acti
 				oldCameraFront = cameraFront;
 			}
 			scene.flipToggleState();
+			break;
+		case GLFW_KEY_B:
+			if(MODE == REC_MOD){
+				scene.addCamPosRenderVAO(cameraPos, cameraFront);
+			}
+			break;
+		case GLFW_KEY_P:
+			if (MODE == PICKING_MOD)
+			{
+				MODE = DEF_MOD;
+			}else
+				MODE = PICKING_MOD;
+			break;
+		case GLFW_KEY_C:
+			if (PICKING_MOD)
+			{
+				scene.ComputeCamPose(mySolver);
+			}
+			break;
 		}
-		
-		
-
 	}
 
 	glm::vec3 front;
@@ -307,7 +331,6 @@ void rotate_cam_key_callback(GLFWwindow* window, int key, int scancode, int acti
 	cameraFront = glm::normalize(front);
 
 }
-
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
 // ---------------------------------------------------------------------------------------------
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)

@@ -11,7 +11,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/normal.hpp>
-
+#include "PoseEstSolver.h"
 #include "Shader.h"
 
 typedef std::string str;
@@ -49,7 +49,9 @@ public:
 	void addVAOconfig(unsigned int vaoRef); //add a VAO object ref to the vao_vec vector, to be used at render call
 	void addCamPosRenderVAO(glm::vec3 &cameraPos, glm::vec3& cameraFrontVec);
 	void incToggleIndex();
+	void decToggleIndex();
 	void flipToggleState();
+	void ComputeCamPose(PoseEstSolver& slv, glm::vec3 cameraPos);//show diff between cam poses on the view
 	std::vector<struct camSnapshotData*> getCamVec();
 	int getToggleIndex();
 private:

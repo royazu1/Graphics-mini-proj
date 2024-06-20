@@ -70,14 +70,12 @@ void Scene::addCamPosRenderVAO(glm::vec3 & cameraPos, glm::vec3 & cameraFrontVec
 	glm::vec3 leftVertexTriangle= cameraPos + (toLeftPoint * mult);
 
 
-
 	glm::vec3 blueColorVec = glm::vec3(0.0f, 0.0f, 1.0f);
 	glm::vec3 greenColVec = glm::vec3(0.0f, 1.0f, 0.0f);
 	struct Vertex camVertexData[3];
 	storeVertexData(&camVertexData[0], cameraPos, blueColorVec);
 	storeVertexData(&camVertexData[1], rightVertexTriangle, greenColVec);
 	storeVertexData(&camVertexData[2], leftVertexTriangle, greenColVec);
-
 
 	GLuint camVao;
 	glGenVertexArrays(1, &camVao);
@@ -103,10 +101,22 @@ void Scene::incToggleIndex()
 {
 	toggleIndex = (toggleIndex + 1) % camSnapshotsVec.size();
 }
+void Scene::decToggleIndex()
+{
+	toggleIndex = (toggleIndex - 1) % camSnapshotsVec.size();
+}
 
 void Scene::flipToggleState()
 {
 	isToggled = !isToggled;
+}
+
+void Scene::ComputeCamPose(PoseEstSolver& slv, glm::vec3 cameraPos)
+{
+	if (slv.shouldSolve())
+	{
+		poseEstimationData ped =  slv.solve();
+	}
 }
 
 std::vector<struct camSnapshotData*> Scene::getCamVec() {
