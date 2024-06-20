@@ -16,6 +16,6 @@ private:
 	glm::mat4 projectionMat;
 public:
 	Camera(float near, float far, float vertical_distance, float horizontal_distance); //calculate 
-	glm::mat4 getProjectionMatrix();
+	glm::mat4& getProjectionMatrix();
 };
 

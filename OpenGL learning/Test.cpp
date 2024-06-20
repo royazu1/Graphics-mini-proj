@@ -36,7 +36,7 @@ void cursor_pos_cv(GLFWwindow* window, double pickingX, double pickingY);
  int SCR_HEIGHT = 600;
 
 // camera
-glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 20.0f);
+glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 0.0f);
 glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
@@ -66,24 +66,16 @@ Scene scene;
 bool pixelPicked = false;
 glm::uvec2 pickedPos;    //holds the picked pixel coords 
 int picked = 0;
-float aspect_ratio = SCR_WIDTH / SCR_HEIGHT;
-PoseEstSolver mySolver(SCR_WIDTH, SCR_HEIGHT, -1.0f, 1.0f, aspect_ratio,-aspect_ratio,0.2f);
+float aspect_ratio = (float)SCR_WIDTH * 0.5 / (float)SCR_HEIGHT;
+//PoseEstSolver mySolver(SCR_WIDTH/2, SCR_HEIGHT, -0.0577f, 0.0577f, aspect_ratio,-aspect_ratio,0.1f);
+PoseEstSolver mySolver(SCR_WIDTH / 2, SCR_HEIGHT, -0.02f, 0.02f, 0.05f, -0.05f, 0.1f);
 //glm::mat4 projection = glm::perspective(glm::radians(60.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 1.0f, 100.0f);
-Camera camera(0.1f, 100.0f, 0.0577f, (float)SCR_WIDTH / (float)SCR_HEIGHT);
+//Camera camera(0.1f, 50.0f, 0.0577f, aspect_ratio);
+Camera camera(0.1f, 50.0f, 0.02f, 0.05f);
+
 
 int main()
 {
-	/* openCV testing..
-	cv::Mat openCV_img = cv::imread("heatmap.jpg");
-	if (openCV_img.empty()) {
-		std::cout << "imread couldn't read image.." << std::endl;
-		return 1;
-	}
-	cv::imshow("heatmap", openCV_img);
-	cv::waitKey(0);
-	cv::destroyAllWindows();
-	*/
-
 	glfwInit();
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3); //VERSION 3.3
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -125,12 +117,14 @@ int main()
 	pickedColorArr[2] = glm::vec3(0.0f, 0.0f, 1.0f);
 
 	
-	
+	//enable depth testing - check the effect of reading from the depth buffer
+	glEnable(GL_DEPTH_TEST);
 	//render loop
 	while (!glfwWindowShouldClose(window)) { //as long as this windows closing flag is not set
 		//if linking succeeded, we attach the shader executable to the rendering context:
 		glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT );          // DONT FORGET TO RE-ENABLE DEPTH TESTING
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);          // DONT FORGET TO RE-ENABLE DEPTH TESTING
+		
 		myShader.useProgram();
 		//glBindVertexArray(vao);
 
@@ -140,6 +134,8 @@ int main()
 			cameraPos = camData.cameraPos;
 			cameraFront = camData.camDirection;
 		}
+
+
 
 		//glm::mat4 projection = glm::perspective(glm::radians(60.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 1.0f, 100.0f);
 		glm::mat4 projection = camera.getProjectionMatrix();
@@ -152,25 +148,26 @@ int main()
 		scene.Draw(CAMERA_VIEW, myShader);
 		//printf("drawn\n");
 
-		if (pixelPicked) {               //draw to the pixel location that was picked by the mouse
+		//glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
+		camSpaceTrans = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+		myShader.setMatrixUniform("camTransMatrix", camSpaceTrans);
+		myShader.setMatrixUniform("projectionMatrix", projection);
+
+		glViewport(0, 0, SCR_WIDTH / 2, SCR_HEIGHT); //global view rendering
+		scene.Draw(GLOBAL_VIEW, myShader);
+		
+		if (pixelPicked) {               //draw to the pixel location that was picked by the mouse - should be done right before swapping color buffs
 			for (int i = 0; i < pickedPosVec.size();i++) {
 				glm::uvec2 currPickedPos = pickedPosVec[i];
 				glm::vec3 pickedColor = pickedColorArr[i];
 				glEnable(GL_SCISSOR_TEST);
-				glScissor(currPickedPos.x, currPickedPos.y, 4, 4);
+				glScissor(currPickedPos.x, currPickedPos.y, 6, 6);
 				glClearColor(pickedColor.r, pickedColor.g, pickedColor.b, 1.0f);
 				glClear(GL_COLOR_BUFFER_BIT);
 				glDisable(GL_SCISSOR_TEST);
 			}
 		}
 
-		//glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-		camSpaceTrans = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -10.0f));
-		myShader.setMatrixUniform("camTransMatrix", camSpaceTrans);
-		myShader.setMatrixUniform("projectionMatrix", projection);
-
-		glViewport(0, 0, SCR_WIDTH / 2, SCR_HEIGHT); //global view rendering
-		scene.Draw(GLOBAL_VIEW, myShader);
 
 		glfwSwapBuffers(window); //swap buffers for the current contexted window
 		glfwPollEvents();
@@ -190,26 +187,54 @@ void mouse_picking_callback(GLFWwindow* window, int button, int action, int mods
 			printf("Negative window coord.. something is wrong here");
 			return;
 		}
-		else if (pickingX > 0) {
+		else if (pickingX <= SCR_WIDTH / 2) {
 			printf("Picking in global view...\n");
 			//read from the depth-buffer, then call glm::unproject to attain point at world coordinates, call addPose with the 3d pose vec
 			GLuint depth_value;
-			glReadPixels(pickingX, pickingY, 1, 1, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT_24_8, &depth_value); //?? for some reason z-value is the same for all pixels
-			//mySolver.addPose()
-			printf("depth=%u\n",depth_value);
-			return;
+			glReadPixels(pickingX, pickingY, 1, 1, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, &depth_value); //?? for some reason z-value is the same for all pixels
+			GLuint max_int = (1 << 32) - 1;
+			glm::vec3 pose_NDC = glm::vec3(pickingX, pickingY, (float)depth_value / (float)max_int);
+			printf("depth=%u (normalized to 32 bit integer depth), and =%f\n",depth_value, (float)depth_value / (float) max_int);
+			glm::vec4 viewport_vec = glm::vec4(0, 0, SCR_WIDTH / 2, SCR_HEIGHT);
+			glm::mat4 globModelViewMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+			glm::vec3 pose_3D = glm::unProjectNO(pose_NDC, globModelViewMat, camera.getProjectionMatrix(), viewport_vec);
+			printf("pose3d: (x,y,z)=(%f ,%f ,%f)\n", pose_3D.x, pose_3D.y,pose_3D.z);
+			mySolver.addPose(pose_3D);
 		}
 		else { // pickingX > SCR_WIDTH / 2      -- picking in cam view , use addPose with a 2d vec
-			printf("Picking in cam view...\n");
-			mySolver.addPose(glm::vec2(pickingX, pickingY));
+				printf("Picking in cam view...\n");
+			printf("pose2d: (u,v)=(%f ,%f)\n", pickingX - (float)(SCR_WIDTH / 2), (float)pickingY);
+			mySolver.addPose(glm::vec2(pickingX - (float)(SCR_WIDTH/2), (float)pickingY));
+
+			// debug
+			/*
+			
+			GLuint depth_value;
+			glReadPixels(pickingX, pickingY, 1, 1, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, &depth_value); //?? for some reason z-value is the same for all pixels
+			GLuint max_int = (1 << 32) - 1;
+			glm::vec3 pose_NDC = glm::vec3(pickingX, pickingY, (float)depth_value / (float)max_int);
+			printf("depth=%u (normalized to 32 bit integer depth), and =%f\n", depth_value, (float)depth_value / (float)max_int);
+			glm::vec4 viewport_vec = glm::vec4(SCR_WIDTH / 2, 0, SCR_WIDTH / 2, SCR_HEIGHT);
+			glm::mat4 globModelViewMat = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+			glm::vec3 pose_3D = glm::unProjectNO(pose_NDC, globModelViewMat, camera.getProjectionMatrix(), viewport_vec);
+			printf("pose3d: (x,y,z)=(%f ,%f ,%f)\n", pose_3D.x, pose_3D.y, pose_3D.z);
+			mySolver.addPose(pose_3D);
+			
+			
+			*/
 		}
 		
 		pickedPosVec.push_back(glm::uvec2(pickingX, pickingY));
 		pixelPicked = true;
 		picked++;
 		
-	
+		if (mySolver.shouldSolve()) { 
+			struct poseEstimationData sol = mySolver.solve();
 
+			printf("sol-camPos: (x,y,z)=(%f,%f,%f)\n", sol.camTranslation.x, sol.camTranslation.y, sol.camTranslation.z);
+			printf("sol-camDir: (x,y,z)=(%f,%f,%f)\n", sol.camRotation.x, sol.camRotation.y, sol.camRotation.z);
+			scene.addCamPosRenderVAO(sol.camTranslation, sol.camRotation);
+		}
 	}
 
 
@@ -225,7 +250,7 @@ void cursor_pos_cv(GLFWwindow* window, double pickingX, double pickingY) {
 void rotate_cam_key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
 	if (action == GLFW_PRESS) {
 		switch (key) {
-		case GLFW_KEY_RIGHT: //perform yaw - clockwise say 6 degrees or if toggle is enabled, move between the camera poses
+		case GLFW_KEY_RIGHT: //perform yaw - clockwise say 6 degrees, or if toggle is enabled, move between the camera poses
 			if (isToggled) {
 				scene.incToggleIndex();
 			}
@@ -254,6 +279,8 @@ void rotate_cam_key_callback(GLFWwindow* window, int key, int scancode, int acti
 			cameraPos = cameraPos - cameraFront;
 			break;
 		case GLFW_KEY_R: //record camera position and display it as a rendered point at the GLOBAL VIEW (LEFT VIEWPORT)
+			printf("camPos: (x,y,z)=(%f,%f,%f)\n", cameraPos.x,cameraPos.y,cameraPos.z);
+			printf("camDir: (x,y,z)=(%f,%f,%f)\n", cameraFront.x, cameraFront.y, cameraFront.z);
 			scene.addCamPosRenderVAO(cameraPos, cameraFront);
 			break;
 		case GLFW_KEY_T:

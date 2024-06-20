@@ -9,20 +9,28 @@
 #include <opencv2/calib3d.hpp>
 #include <iostream>
 
+struct poseEstimationData {
+	glm::vec3 camRotation;
+	glm::vec3 camTranslation;
+};
+
 class PoseEstSolver
 {
 private:
 	std::vector<cv::Point3d> poseVec3D;
 	std::vector<cv::Point2d> poseVec2D;
-	float focal_x;
-	float focal_y;
+	double focal_x; 
+	double focal_y;
 	cv::Matx33d intrinsicMat;
 	double c_x; //principal point u coord
 	double c_y; //principal point v coord
+	float window_height;
 
 public:
 	bool addPose(glm::vec3 pos); //need to reflect the y axis 
 	bool addPose(glm::vec2 pos);	//need to reflect the y and z axes
 	PoseEstSolver(int window_width, int window_height, float bottom, float top, float right, float left, float near);
+	struct poseEstimationData solve(); //return the rotation/translation vectors based on picked 2D/3D 
+	bool shouldSolve();
 };
 

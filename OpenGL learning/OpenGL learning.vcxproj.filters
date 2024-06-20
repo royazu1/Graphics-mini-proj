@@ -87,7 +87,9 @@
     <Text Include="backup.txt" />
     <Text Include="backup_2d_rendering.txt" />
     <Text Include="backup_recent.txt" />
-    <Text Include="notes.txt" />
+    <Text Include="notes.txt">
+      <Filter>Source Files</Filter>
+    </Text>
   </ItemGroup>
   <ItemGroup>
     <None Include="fragmentShader.fs" />

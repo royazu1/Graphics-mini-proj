@@ -24,6 +24,8 @@ private:
 		int numChannels;
 		float normalizeCoord(unsigned char pix_coord);
 		struct Vertex** meshVertexData;
+		float minHeight;
+		float maxHeight;
 		
 
 		

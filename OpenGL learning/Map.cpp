@@ -18,6 +18,8 @@ Map::Map(const char* img_path)
 		std::cout << "Map image wasn't loaded succesfully!" << std::endl;
 		std::cout << stbi_failure_reason() << std::endl;
 	}
+	minHeight = 255.0f;
+	maxHeight = 0.0f;
 	meshVertexData = NULL;
 }
 
@@ -28,8 +30,6 @@ unsigned int Map::getIntensity(int y, int x)
 
 float** Map::getHeightMap()
 {
-	float minHeight = 255;
-	float maxHeight = 0;
 	float currentHeight = 0;
 
 	float** heightMap = new float *[height];
@@ -60,6 +60,9 @@ float** Map::getHeightMap()
 
 void Map::createMesh(int res, Scene& scene)
 {
+	//debug
+	
+	//debug
 	unsigned int currVAO;
 	unsigned int currVBO;
 	unsigned int currEBO;
@@ -69,6 +72,10 @@ void Map::createMesh(int res, Scene& scene)
 
 	int yRes = height / 50; //height / far_plane_dist
 	int xRes = width / 50;
+
+	//debug
+
+	goto Test_Rec;
 
 	for (int y = 0; y < height - yRes; y+= yRes) {
 		for (int x = 0; x < width - xRes; x+=xRes) {
@@ -110,59 +117,89 @@ void Map::createMesh(int res, Scene& scene)
 		}
 	}
 
+Test_Rec:
+	struct Vertex rectangleVertices[4];
+	rectangleVertices[0].vCoords[0] = -1;
+	rectangleVertices[0].vCoords[1] = 1;
+	rectangleVertices[0].vCoords[2] = -5;
+
+	rectangleVertices[1].vCoords[0] = 1;
+	rectangleVertices[1].vCoords[1] = 1;
+	rectangleVertices[1].vCoords[2] = -5;
+
+	rectangleVertices[2].vCoords[0] = 1;
+	rectangleVertices[2].vCoords[1] = 0;
+	rectangleVertices[2].vCoords[2] = -5;
+
+	rectangleVertices[3].vCoords[0] = -1;
+	rectangleVertices[3].vCoords[1] = 0;
+	rectangleVertices[3].vCoords[2] = -5;
+
+	for (int i = 0; i < 4;i++) {
+		rectangleVertices[i].vColor[0] = 1.0f;
+		rectangleVertices[i].vColor[0] = 0.0f;
+		rectangleVertices[i].vColor[0] = 1.0f;
+	}
+
+	glGenVertexArrays(1, &currVAO);
+	glBindVertexArray(currVAO);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, currEBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(renderIndexes), renderIndexes, GL_STATIC_DRAW);
+
+	glGenBuffers(1, &currVBO);
+	glBindBuffer(GL_ARRAY_BUFFER, currVBO);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(rectangleVertices), rectangleVertices, GL_STATIC_DRAW);
+
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(struct Vertex), (void*)0);
+	glEnableVertexAttribArray(0);
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(struct Vertex), (void*)(3 * sizeof(float))); //remember the last arg is offset in bytes!
+	glEnableVertexAttribArray(1);
+	scene.addVAOconfig(currVAO);
 
 	//free vertex memory
-
+	
 }
 
 void Map::create3DMeshData()
 {
-
-	float minHeight = 255;
-	float maxHeight = 0;
 	float currentHeight = 0;
 	meshVertexData = new struct Vertex*[height];
-	
-
-
-	float** heightMap = new float* [height];
-	for (int y = 0; y < height;y++) {
-		heightMap[y] = new float[width];
-		for (int x = 0; x < width; x++) {
-			heightMap[y][x] = (float)getIntensity(y, x);
-			currentHeight = heightMap[y][x];
-			if (currentHeight > maxHeight) {
-				maxHeight = currentHeight;
-			}
-			if (currentHeight < minHeight) {
-				minHeight = currentHeight;
-			}
-		}
-	}
-
-	float f = 100 / (maxHeight - minHeight);
+	float** heightMap = getHeightMap();
 	
 	float maxX = (float)width - 1;
 	float maxY = (float)height - 1;
 
 	
 	
-	int yRes = height / 200; //height / far_plane_dist
-	int xRes = width / 200;
+	int yRes = height / 50; //height / far_plane_dist
+	int xRes = width / 50;
 	
+	int pr = 0;//debug
+	int pr1 = 0;
 
 	for (int y = 0; y < height;y++) {
 		meshVertexData[y] = new struct Vertex[width];
 		for (int x = 0; x < width;x++) {
 			float xCoord= -10.0f + ((float)x * 20.0f / maxX);  //map x axis to world's x axis 
-			float zCoord = -100.0f + ((float)y * (100.f -1.0f) / maxY); // map the y axis to world z axis , going from the far plane inwards  
-			float yCoord = -0.5f + (heightMap[y][x] - minHeight) * 5.0f / (maxHeight - minHeight)  ; //map Z coord to the [-1,1] normalized range
+			float zCoord = -100.0f + ((float)y * (100.f -0.1f) / maxY); // map the y axis to world z axis , going from the far plane inwards  
+			float yCoord = 0.0f + (heightMap[y][x] - minHeight) * 5.0f / (maxHeight - minHeight)  ; //map Z coord to the [-1,1] normalized range
+			
+			if (x == width - 1 && pr ==0) {
+				printf("Max xCoord in world is: %f\n", xCoord);
+				pr++;
+			}
+			else if (y == height - 1 && pr1 ==0) {
+				printf("Max zCoord in world is: %f\n", zCoord);
+				pr1++;
+			}
+			
 			//add to the vertex array 
 			//struct Vertex currVertex = meshVertexData[y][x];
 			meshVertexData[y][x].vCoords[0] = xCoord;
 			meshVertexData[y][x].vCoords[1] = yCoord;
 			meshVertexData[y][x].vCoords[2] = zCoord;
-			meshVertexData[y][x].vColor[0] = 1.0f;
+			meshVertexData[y][x].vColor[0] = 1.0f * (yCoord / 5.0f);
 			meshVertexData[y][x].vColor[1] = 0.3f;
 			meshVertexData[y][x].vColor[2] = 0.4f;
 
