@@ -41,6 +41,7 @@ class Scene
 
 public:
 	Scene();
+	~Scene();
 	//void load2DMap(str filePath);
 	//void makeHeightMap();
 	//void setUpSplitScrean();
@@ -51,7 +52,6 @@ public:
 	void incToggleIndex();
 	void decToggleIndex();
 	void flipToggleState();
-	void ComputeCamPose(PoseEstSolver& slv, glm::vec3 cameraPos);//show diff between cam poses on the view
 	std::vector<struct camSnapshotData*> getCamVec();
 	int getToggleIndex();
 private:

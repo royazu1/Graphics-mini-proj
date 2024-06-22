@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <ostream>
 #include <iostream>
-
+#include <glut/include/GL/glut.h>
 #include "stb_image.h"
 #include "Shader.h"
 #include "Map.h"
@@ -36,6 +36,7 @@ void cursor_pos_cv(GLFWwindow* window, double pickingX, double pickingY);
 #define REC_MOD 15
 #define PLAYBACK_MOD 20
 #define PICKING_MOD 25
+#define DIFF_MOD 30
 
 // settings
  int SCR_WIDTH = 800;
@@ -153,14 +154,23 @@ int main()
 		//printf("drawn\n");
 
 		//glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-		camSpaceTrans = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+		if (MODE == DIFF_MOD)
+		{
+			poseEstimationData ped = mySolver.solve();
+			cameraPos = ped.camTranslation;
+			cameraFront = ped.camRotation;
+			camSpaceTrans = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+		}
+		else {
+			camSpaceTrans = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
+		}
 		myShader.setMatrixUniform("camTransMatrix", camSpaceTrans);
 		myShader.setMatrixUniform("projectionMatrix", projection);
 
 		glViewport(0, 0, SCR_WIDTH / 2, SCR_HEIGHT); //global view rendering
 		scene.Draw(GLOBAL_VIEW, myShader);
 		
-		if (pixelPicked) {               //draw to the pixel location that was picked by the mouse - should be done right before swapping color buffs
+		if (pixelPicked /*&& PICKING_MOD*/) { //draw to the pixel location that was picked by the mouse - should be done right before swapping color buffs
 			for (int i = 0; i < pickedPosVec.size();i++) {
 				glm::uvec2 currPickedPos = pickedPosVec[i];
 				glm::vec3 pickedColor = pickedColorArr[i];
@@ -226,12 +236,13 @@ void mouse_picking_callback(GLFWwindow* window, int button, int action, int mods
 		pixelPicked = true;
 		picked++;
 		
-		if (mySolver.shouldSolve()) { 
+		//NO NEED ANYMORE!!
+		/*if (mySolver.shouldSolve()) {
 			struct poseEstimationData sol = mySolver.solve();
 			printf("sol-camPos: (x,y,z)=(%f,%f,%f)\n", sol.camTranslation.x, sol.camTranslation.y, sol.camTranslation.z);
 			printf("sol-camDir: (x,y,z)=(%f,%f,%f)\n", sol.camRotation.x, sol.camRotation.y, sol.camRotation.z);
-			scene.addCamPosRenderVAO(sol.camTranslation, sol.camRotation);//no need
-		}
+			scene.addCamPosRenderVAO(sol.camTranslation, sol.camRotation);
+		}*/
 	}
 
 
@@ -246,7 +257,7 @@ void cursor_pos_cv(GLFWwindow* window, double pickingX, double pickingY) {
 
 void rotate_cam_key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
 	if (action == GLFW_PRESS) {
-		int modif = glutGetModifiers(void);//GLUT_ACTIVE_SHIFT == modif
+		int modif = glutGetModifiers();//GLUT_ACTIVE_SHIFT == modif
 		switch (key) {
 		case GLFW_KEY_RIGHT: //perform yaw - clockwise say 6 degrees, or if toggle is enabled, move between the camera poses
 			if (MODE == PLAYBACK_MOD) {
@@ -316,9 +327,13 @@ void rotate_cam_key_callback(GLFWwindow* window, int key, int scancode, int acti
 				MODE = PICKING_MOD;
 			break;
 		case GLFW_KEY_C:
-			if (PICKING_MOD)
+			if (mySolver.shouldSolve())
 			{
-				scene.ComputeCamPose(mySolver);
+				MODE = DIFF_MOD;
+			}
+			else
+			{
+				std::cout << "can't solve cam pos, not enough points\n";
 			}
 			break;
 		}

@@ -9,6 +9,14 @@ Scene::Scene() {
 	isToggled = false;
 }
 
+Scene::~Scene()
+{
+	for (int i = 0; i < this->camSnapshotsVec.size(); i++)
+	{
+		delete camSnapshotsVec[i];
+	}
+}
+
 void Scene::Draw(int type, Shader & drawingShader) // 0 for global view, 1 for cam view
 {
 	
@@ -111,13 +119,6 @@ void Scene::flipToggleState()
 	isToggled = !isToggled;
 }
 
-void Scene::ComputeCamPose(PoseEstSolver& slv, glm::vec3 cameraPos)
-{
-	if (slv.shouldSolve())
-	{
-		poseEstimationData ped =  slv.solve();
-	}
-}
 
 std::vector<struct camSnapshotData*> Scene::getCamVec() {
 	return this->camSnapshotsVec;
