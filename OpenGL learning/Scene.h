@@ -49,6 +49,7 @@ public:
 	void addVAOconfig(unsigned int vaoRef); //add a VAO object ref to the vao_vec vector, to be used at render call
 	void addCamPosRenderVAO(glm::vec3 &cameraPos, glm::vec3& cameraFrontVec);
 	void incToggleIndex();
+	void decToggleIndex();
 	void flipToggleState();
 	std::vector<struct camSnapshotData*> getCamVec();
 	int getToggleIndex();

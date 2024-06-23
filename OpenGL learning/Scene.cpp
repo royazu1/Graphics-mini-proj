@@ -20,7 +20,7 @@ void Scene::Draw(int type, Shader & drawingShader) // 0 for global view, 1 for c
 		glBindVertexArray(0);
 	}
 
-	glPointSize(10.0);//
+	//glPointSize(10.0);//
 	for (int j = 0; j < camRenderVAOs.size() && type == GLOBAL_VIEW; j++) { //draw only in global view
 		unsigned int currCamPosVao = camRenderVAOs[j];
 		glBindVertexArray(currCamPosVao);
@@ -29,6 +29,7 @@ void Scene::Draw(int type, Shader & drawingShader) // 0 for global view, 1 for c
 			glDrawArrays(GL_TRIANGLES, 0, 3);
 		}
 		else if (isToggled) {
+			//printf("in scene: toggled is on!\n");
 			drawingShader.setIntegerUniform("toggledFrag", 1);
 			glDrawArrays(GL_TRIANGLES, 0, 3);
 			drawingShader.setIntegerUniform("toggledFrag", 0);
@@ -57,8 +58,8 @@ void Scene::addCamPosRenderVAO(glm::vec3 & cameraPos, glm::vec3 & cameraFrontVec
 
 	//x,y,z right handed coord system
 	glm::vec3 fakeUpVec=glm::vec3(0.0f, 1.0f, 0.0f);
-	glm::vec3 rightVec = glm::cross(fakeUpVec, cameraFrontVec); //right hand rule
-	glm::vec3 realUpVec =glm::normalize( glm::cross(cameraFrontVec, rightVec)); //right hand rule
+	glm::vec3 rightVec = glm::cross(fakeUpVec, -cameraFrontVec); //right hand rule
+	glm::vec3 realUpVec =glm::normalize( glm::cross(-cameraFrontVec, rightVec)); //right hand rule
 
 	glm::vec4 toRightVerDir =glm::normalize( glm::rotate(glm::mat4(1.0f), glm::radians(-30.0f), realUpVec) * glm::vec4(cameraFrontVec,1.0f) );
 	glm::vec3 toRightPoint = glm::vec3(toRightVerDir);
@@ -102,6 +103,16 @@ void Scene::addCamPosRenderVAO(glm::vec3 & cameraPos, glm::vec3 & cameraFrontVec
 void Scene::incToggleIndex()
 {
 	toggleIndex = (toggleIndex + 1) % camSnapshotsVec.size();
+}
+
+void Scene::decToggleIndex() {
+	if (toggleIndex - 1 == 0) {
+		toggleIndex = 0;
+	}
+	else {
+		toggleIndex = (toggleIndex - 1) % camSnapshotsVec.size();
+	}
+	
 }
 
 void Scene::flipToggleState()

@@ -19,7 +19,7 @@ class PoseEstSolver
 private:
 	std::vector<cv::Point3d> poseVec3D;
 	std::vector<cv::Point2d> poseVec2D;
-	double focal_x; 
+	double focal_x;
 	double focal_y;
 	cv::Matx33d intrinsicMat;
 	double c_x; //principal point u coord
@@ -29,8 +29,10 @@ private:
 public:
 	bool addPose(glm::vec3 pos); //need to reflect the y axis 
 	bool addPose(glm::vec2 pos);	//need to reflect the y and z axes
-	PoseEstSolver(int window_width, int window_height, float bottom, float top, float right, float left, float near);
+	PoseEstSolver(int window_width, int window_height, float vertical_fov, float near);
+	PoseEstSolver operator=(const PoseEstSolver& other);
 	struct poseEstimationData solve(); //return the rotation/translation vectors based on picked 2D/3D 
 	bool shouldSolve();
+	void clear();
 };
 

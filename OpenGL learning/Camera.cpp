@@ -1,15 +1,70 @@
 #include "Camera.h"
 
-Camera::Camera(float near, float far, float vertical_distance, float horizontal_distance)
+Camera::Camera(float near, float far, float vertical_fov, float aspect_ratio, glm::vec3 camFront, glm::vec3 camPos)
 {
 	this->near = near;
-	//this->aspect_ratio = horizontal_distance / vertical_distance; //horizontal is already equal to the aspect_ratio.. remove later
-	this->vertical_fov = 2 * glm::atan((vertical_distance / near)); //in radians 
-	//projectionMat = glm::perspective(vertical_fov, horizontal_distance, near, far);
-	projectionMat = glm::frustum(-horizontal_distance, horizontal_distance, -vertical_distance, vertical_distance, near, far);
+	this->far = far;
+	this->aspect_ratio = aspect_ratio;
+	this->vertical_fov = vertical_fov; //in DEGREES
+	this->cameraFront = camFront;
+	this->cameraPos = camPos;
 }
 
-glm::mat4& Camera::getProjectionMatrix()
+glm::mat4 Camera::getProjectionMatrix()
 {
-	return projectionMat;
+	glm::mat4 proj = glm::perspective(glm::radians(vertical_fov), aspect_ratio, near, far);
+	//glm::mat4 proj = glm::perspective(vertical_fov, aspect_ratio, near, far);
+	return proj;
+}
+
+void Camera::modifyFOV(float degrees_delta)
+{
+	this->vertical_fov += degrees_delta;
+	if (vertical_fov > MAX_FOV_DEG) {
+		vertical_fov = MAX_FOV_DEG;
+	}
+	if (vertical_fov < MIN_FOV_DEG) {
+		vertical_fov = MIN_FOV_DEG;
+	}
+}
+
+void Camera::setFOV(float newFOV)
+{
+	vertical_fov = newFOV;
+}
+
+void Camera::setCamPos(glm::vec3 newCamPos)
+{
+	cameraPos = newCamPos;
+}
+
+void Camera::setCamFront(glm::vec3 newCamFront)
+{
+	cameraFront = newCamFront;
+}
+
+glm::vec3 Camera::getCamPos()
+{
+	return cameraPos;
+}
+
+glm::vec3 Camera::getCamFront()
+{
+	return cameraFront;
+}
+
+glm::mat4 Camera::getModelViewMat() {
+	glm::vec3 fakeUp = glm::vec3(0.0f, 1.0f, 0.0f);
+	glm::mat4 modelView = glm::lookAt(cameraPos, cameraPos + cameraFront, fakeUp);
+	return modelView;
+}
+
+float Camera::getFOV()
+{
+	return vertical_fov;
+}
+
+void Camera::normalizeFront()
+{
+	cameraFront = glm::normalize(cameraFront);
 }

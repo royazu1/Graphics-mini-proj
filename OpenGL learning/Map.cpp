@@ -1,6 +1,6 @@
 #include "Map.h"
 #include "Scene.h"
-
+#include <stdlib.h> 
 
 
 
@@ -70,12 +70,12 @@ void Map::createMesh(int res, Scene& scene)
 							0,2,3 };
 	glGenBuffers(1, &currEBO);
 
-	int yRes = height / 50; //height / far_plane_dist
-	int xRes = width / 50;
+	int yRes = height / 30; //height / far_plane_dist
+	int xRes = width / 30;
 
 	//debug
 
-	goto Test_Rec;
+	//goto Test_Rec;
 
 	for (int y = 0; y < height - yRes; y+= yRes) {
 		for (int x = 0; x < width - xRes; x+=xRes) {
@@ -116,7 +116,7 @@ void Map::createMesh(int res, Scene& scene)
 
 		}
 	}
-
+	/*
 Test_Rec:
 	struct Vertex rectangleVertices[4];
 	rectangleVertices[0].vCoords[0] = -1;
@@ -156,9 +156,9 @@ Test_Rec:
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(struct Vertex), (void*)(3 * sizeof(float))); //remember the last arg is offset in bytes!
 	glEnableVertexAttribArray(1);
 	scene.addVAOconfig(currVAO);
-
+	*/
 	//free vertex memory
-	
+	cleanMeshData();
 }
 
 void Map::create3DMeshData()
@@ -181,9 +181,9 @@ void Map::create3DMeshData()
 	for (int y = 0; y < height;y++) {
 		meshVertexData[y] = new struct Vertex[width];
 		for (int x = 0; x < width;x++) {
-			float xCoord= -10.0f + ((float)x * 20.0f / maxX);  //map x axis to world's x axis 
+			float xCoord= -20.0f + ((float)x * 40.0f / maxX);  //map x axis to world's x axis 
 			float zCoord = -100.0f + ((float)y * (100.f -0.1f) / maxY); // map the y axis to world z axis , going from the far plane inwards  
-			float yCoord = 0.0f + (heightMap[y][x] - minHeight) * 5.0f / (maxHeight - minHeight)  ; //map Z coord to the [-1,1] normalized range
+			float yCoord = 0.0f + (heightMap[y][x] - minHeight) * 2.2f / (maxHeight - minHeight)  ; //map Z coord to the [-1,1] normalized range
 			
 			if (x == width - 1 && pr ==0) {
 				printf("Max xCoord in world is: %f\n", xCoord);
@@ -199,9 +199,9 @@ void Map::create3DMeshData()
 			meshVertexData[y][x].vCoords[0] = xCoord;
 			meshVertexData[y][x].vCoords[1] = yCoord;
 			meshVertexData[y][x].vCoords[2] = zCoord;
-			meshVertexData[y][x].vColor[0] = 1.0f * (yCoord / 5.0f);
-			meshVertexData[y][x].vColor[1] = 0.3f;
-			meshVertexData[y][x].vColor[2] = 0.4f;
+			meshVertexData[y][x].vColor[0] = 1.0f * (yCoord / 2.2f);
+			meshVertexData[y][x].vColor[1] = (float)rand() / RAND_MAX;
+			meshVertexData[y][x].vColor[2] = 0.5f;
 
 			//printf("current vertex: x=%f ,y=%f, z=%f\n", xCoord, yCoord, zCoord);
 		}
@@ -215,4 +215,12 @@ void Map::create3DMeshData()
 	//free z values array mem
 
 
+}
+
+void Map::cleanMeshData()
+{
+	for (int y = 0; y < height;y++) {
+		delete meshVertexData[y];
+	}
+	delete meshVertexData;
 }
