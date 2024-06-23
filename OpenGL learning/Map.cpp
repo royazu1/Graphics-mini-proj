@@ -97,7 +97,7 @@ void Map::createMesh(int res, Scene& scene)
 
 			glVertexAttribPointer(0, 3 , GL_FLOAT, GL_FALSE, sizeof(struct Vertex), (void *) 0);
 			glEnableVertexAttribArray(0);
-			glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(struct Vertex), (void*) (3 * sizeof(float)) ); //remember the last arg is offset in bytes!
+			glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(struct Vertex), (void*) (3 * sizeof(float))); //remember the last arg is offset in bytes!
 			glEnableVertexAttribArray(1);
 			/*
 			glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, sizeof(struct Vertex), (void*)(6 * sizeof(float)));

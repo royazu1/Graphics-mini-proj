@@ -80,6 +80,7 @@
     <LinkIncremental>true</LinkIncremental>
     <LibraryPath>C:\Users\roeea\Documents\opencv\build\x64\vc16\lib;C:\Users\roeea\Desktop\OpenGL Linking Dirs\Libs - OpenGL;$(LibraryPath)</LibraryPath>
     <IncludePath>C:\Users\roeea\Documents\opencv\build\include;C:\Users\roeea\Desktop\OpenGL Linking Dirs\Include - OpenGL;$(IncludePath)</IncludePath>
+
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
@@ -144,6 +145,7 @@
   <ItemGroup>
     <ClCompile Include="..\..\..\..\Downloads\glad\src\glad.c" />
     <ClCompile Include="Camera.cpp" />
+
     <ClCompile Include="Map.cpp" />
     <ClCompile Include="PoseEstSolver.cpp" />
     <ClCompile Include="Scene.cpp" />
