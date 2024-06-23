@@ -78,8 +78,9 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <LibraryPath>C:\Users\ilayl\Desktop\BGU\graphic proj\libs;$(LibraryPath)</LibraryPath>
-    <IncludePath>C:\Users\ilayl\Desktop\BGU\graphic proj\includes;$(IncludePath)</IncludePath>
+    <LibraryPath>C:\Users\roeea\Documents\opencv\build\x64\vc16\lib;C:\Users\roeea\Desktop\OpenGL Linking Dirs\Libs - OpenGL;$(LibraryPath)</LibraryPath>
+    <IncludePath>C:\Users\roeea\Documents\opencv\build\include;C:\Users\roeea\Desktop\OpenGL Linking Dirs\Include - OpenGL;$(IncludePath)</IncludePath>
+
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
@@ -122,7 +123,7 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>glfw3.lib;opengl32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>glfw3.lib;opengl32.lib;opencv_world490d.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -142,8 +143,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="glad.c" />
+    <ClCompile Include="..\..\..\..\Downloads\glad\src\glad.c" />
+    <ClCompile Include="Camera.cpp" />
+
     <ClCompile Include="Map.cpp" />
+    <ClCompile Include="PoseEstSolver.cpp" />
     <ClCompile Include="Scene.cpp" />
     <ClCompile Include="Shader.cpp" />
     <ClCompile Include="Source.cpp" />
@@ -152,7 +156,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\..\..\Downloads\stb_image.h" />
+    <ClInclude Include="Camera.h" />
     <ClInclude Include="Map.h" />
+    <ClInclude Include="PoseEstSolver.h" />
     <ClInclude Include="Scene.h" />
     <ClInclude Include="Shader.h" />
   </ItemGroup>
@@ -160,6 +166,7 @@
     <Image Include="..\..\..\..\Desktop\topomap.png" />
     <Image Include="awesomeface.png" />
     <Image Include="container.jpg" />
+    <Image Include="heatmap.jpg" />
     <Image Include="ilay.png" />
     <Image Include="ilay1.jpg" />
   </ItemGroup>
@@ -173,6 +180,7 @@
     <None Include="fragmentShader.fs" />
     <None Include="testFragShader.fs" />
     <None Include="testVertexShader.vs" />
+    <None Include="toggleFragShader.vs" />
     <None Include="vertexShader.vs" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

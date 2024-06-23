@@ -2,7 +2,7 @@
 #include "Shader.h"
 
 
-Shader::Shader(const char* vShaderPath, const char* fShaderPath): lightDir(glm::normalize(glm::vec3(-1,-1,0.1))) {
+Shader::Shader(const char* vShaderPath, const char* fShaderPath) {
 	vShaderID = -1;
 	fShaderID = -1;
 	shaderProgramID = -1;
@@ -92,6 +92,11 @@ std::string Shader::extractSrcCode(std::ifstream& shaderStream, std::stringstrea
 	std::string srcCodeString = shaderSSstream.str();
 	return srcCodeString;
 }
+
+void Shader::setIntegerUniform(const char* variableName, int val) {
+	glUniform1i(glGetUniformLocation(shaderProgramID, variableName), val);
+}
+
 
 
 void  Shader::setMatrixUniform(const char * variableName,glm::mat4 matrix) {

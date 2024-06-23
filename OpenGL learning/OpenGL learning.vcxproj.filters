@@ -33,7 +33,13 @@
     <ClCompile Include="Test.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="glad.c">
+    <ClCompile Include="..\..\..\..\Downloads\glad\src\glad.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="PoseEstSolver.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Camera.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -48,6 +54,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="Scene.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="PoseEstSolver.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Camera.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
@@ -67,17 +79,23 @@
     <Image Include="..\..\..\..\Desktop\topomap.png">
       <Filter>Source Files</Filter>
     </Image>
+    <Image Include="heatmap.jpg">
+      <Filter>Source Files</Filter>
+    </Image>
   </ItemGroup>
   <ItemGroup>
     <Text Include="backup.txt" />
     <Text Include="backup_2d_rendering.txt" />
     <Text Include="backup_recent.txt" />
-    <Text Include="notes.txt" />
+    <Text Include="notes.txt">
+      <Filter>Source Files</Filter>
+    </Text>
   </ItemGroup>
   <ItemGroup>
     <None Include="fragmentShader.fs" />
     <None Include="vertexShader.vs" />
     <None Include="testVertexShader.vs" />
     <None Include="testFragShader.fs" />
+    <None Include="toggleFragShader.vs" />
   </ItemGroup>
 </Project>
