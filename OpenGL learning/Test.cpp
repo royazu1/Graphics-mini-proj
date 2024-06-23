@@ -4,7 +4,7 @@
 #include <stdio.h>
 #include <ostream>
 #include <iostream>
-#include <glut/include/GL/glut.h>
+
 #include "stb_image.h"
 #include "Shader.h"
 #include "Map.h"
@@ -37,14 +37,18 @@ void cursor_pos_cv(GLFWwindow* window, double pickingX, double pickingY);
 #define PLAYBACK_MOD 20
 #define PICKING_MOD 25
 #define DIFF_MOD 30
+#define DEFAULT_FOV 45.0f
+#define NEAR 0.1f
+#define FAR 100.0f
+
 
 // settings
  int SCR_WIDTH = 800;
  int SCR_HEIGHT = 600;
  int MODE = DEF_MOD;
 // camera
-glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 0.0f);
-glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
+glm::vec3 initialPos = glm::vec3(0.0f, 0.0f, 0.0f);
+glm::vec3 initialFront = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
 glm::vec3 oldCameraPos; //this is to backup the camera-pos before we entered toggle mode
@@ -75,11 +79,11 @@ glm::uvec2 pickedPos;    //holds the picked pixel coords
 int picked = 0;
 float aspect_ratio = (float)SCR_WIDTH * 0.5 / (float)SCR_HEIGHT;
 //PoseEstSolver mySolver(SCR_WIDTH/2, SCR_HEIGHT, -0.0577f, 0.0577f, aspect_ratio,-aspect_ratio,0.1f);
-PoseEstSolver mySolver(SCR_WIDTH / 2, SCR_HEIGHT, -0.02f, 0.02f, 0.05f, -0.05f, 0.1f);
+PoseEstSolver mySolver(SCR_WIDTH / 2, SCR_HEIGHT,DEFAULT_FOV, NEAR);
 //glm::mat4 projection = glm::perspective(glm::radians(60.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 1.0f, 100.0f);
 //Camera camera(0.1f, 50.0f, 0.0577f, aspect_ratio);
-Camera camera(0.1f, 50.0f, 0.02f, 0.05f);
-
+Camera viewCam(NEAR, FAR, DEFAULT_FOV,aspect_ratio, initialFront,initialPos);
+Camera globCam(NEAR, FAR, DEFAULT_FOV, aspect_ratio, initialFront,initialPos);
 
 int main()
 {
@@ -101,8 +105,6 @@ int main()
 		return -1;
 	}
 
-
-	
 	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 	glfwSetKeyCallback(window, rotate_cam_key_callback);
 	glfwSetMouseButtonCallback(window, mouse_picking_callback);
@@ -138,13 +140,15 @@ int main()
 		if (isToggled || MODE == PLAYBACK_MOD) { //render according to currently toggled cam location
 			int idx = scene.getToggleIndex();
 			struct camSnapshotData camData= *scene.getCamVec()[idx];
-			cameraPos = camData.cameraPos;
-			cameraFront = camData.camDirection;
+			viewCam.setCamPos(camData.cameraPos);
+			viewCam.setCamFront(camData.camDirection);
+			//cameraPos = camData.cameraPos;
+			//cameraFront = camData.camDirection;
 		}
 
 		//glm::mat4 projection = glm::perspective(glm::radians(60.0f), (float)SCR_WIDTH / (float)SCR_HEIGHT, 1.0f, 100.0f);
-		glm::mat4 projection = camera.getProjectionMatrix();
-		glm::mat4 camSpaceTrans = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
+		glm::mat4 projection = viewCam.getProjectionMatrix();
+		glm::mat4 camSpaceTrans = viewCam.getModelViewMat();
 		//glm::frustum
 		myShader.setMatrixUniform("camTransMatrix", camSpaceTrans);
 		myShader.setMatrixUniform("projectionMatrix", projection);
@@ -154,23 +158,16 @@ int main()
 		//printf("drawn\n");
 
 		//glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-		if (MODE == DIFF_MOD)
-		{
-			poseEstimationData ped = mySolver.solve();
-			cameraPos = ped.camTranslation;
-			cameraFront = ped.camRotation;
-			camSpaceTrans = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
-		}
-		else {
-			camSpaceTrans = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
-		}
+
+		projection = globCam.getProjectionMatrix();
+		camSpaceTrans = globCam.getModelViewMat();
 		myShader.setMatrixUniform("camTransMatrix", camSpaceTrans);
 		myShader.setMatrixUniform("projectionMatrix", projection);
 
 		glViewport(0, 0, SCR_WIDTH / 2, SCR_HEIGHT); //global view rendering
 		scene.Draw(GLOBAL_VIEW, myShader);
 		
-		if (pixelPicked /*&& PICKING_MOD*/) { //draw to the pixel location that was picked by the mouse - should be done right before swapping color buffs
+		if (pixelPicked && PICKING_MOD) { //draw to the pixel location that was picked by the mouse - should be done right before swapping color buffs
 			for (int i = 0; i < pickedPosVec.size();i++) {
 				glm::uvec2 currPickedPos = pickedPosVec[i];
 				glm::vec3 pickedColor = pickedColorArr[i];
@@ -206,7 +203,7 @@ void mouse_picking_callback(GLFWwindow* window, int button, int action, int mods
 			printf("depth=%u (normalized to 32 bit integer depth), and =%f\n",depth_value, (float)depth_value / (float) max_int);
 			glm::vec4 viewport_vec = glm::vec4(0, 0, SCR_WIDTH / 2, SCR_HEIGHT);
 			glm::mat4 globModelViewMat = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, 0.0f));
-			glm::vec3 pose_3D = glm::unProjectNO(pose_NDC, globModelViewMat, camera.getProjectionMatrix(), viewport_vec);
+			glm::vec3 pose_3D = glm::unProjectNO(pose_NDC, globModelViewMat, viewCam.getProjectionMatrix(), viewport_vec);
 			printf("pose3d: (x,y,z)=(%f ,%f ,%f)\n", pose_3D.x, pose_3D.y,pose_3D.z);
 			mySolver.addPose(pose_3D);
 		}
@@ -244,8 +241,6 @@ void mouse_picking_callback(GLFWwindow* window, int button, int action, int mods
 			scene.addCamPosRenderVAO(sol.camTranslation, sol.camRotation);
 		}*/
 	}
-
-
 }
 void cursor_pos_cv(GLFWwindow* window, double pickingX, double pickingY) {
 	if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) != GLFW_PRESS) { //update the pos only when we are not picking
@@ -256,8 +251,8 @@ void cursor_pos_cv(GLFWwindow* window, double pickingX, double pickingY) {
 }
 
 void rotate_cam_key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+	int isShift = 0;
 	if (action == GLFW_PRESS) {
-		int modif = glutGetModifiers();//GLUT_ACTIVE_SHIFT == modif
 		switch (key) {
 		case GLFW_KEY_RIGHT: //perform yaw - clockwise say 6 degrees, or if toggle is enabled, move between the camera poses
 			if (MODE == PLAYBACK_MOD) {
@@ -286,16 +281,17 @@ void rotate_cam_key_callback(GLFWwindow* window, int key, int scancode, int acti
 			if (pitch < -89.0f) { pitch = -89.0f; }
 			break;
 		case GLFW_KEY_W:
-			cameraPos = cameraPos + cameraFront; //speed
+			viewCam.setCamPos(viewCam.getCamFront() + viewCam.getCamFront()); //speed
 			break;
 		case GLFW_KEY_S:
-			cameraPos = cameraPos - cameraFront;
+			viewCam.setCamPos(viewCam.getCamFront() - viewCam.getCamFront());
 			break;
 		case GLFW_KEY_R: //record camera position and display it as a rendered point at the GLOBAL VIEW (LEFT VIEWPORT)
 			//printf("camPos: (x,y,z)=(%f,%f,%f)\n", cameraPos.x,cameraPos.y,cameraPos.z);
 			//printf("camDir: (x,y,z)=(%f,%f,%f)\n", cameraFront.x, cameraFront.y, cameraFront.z);
 			//scene.addCamPosRenderVAO(cameraPos, cameraFront);
-			if (GLUT_ACTIVE_SHIFT == modif ) { // Togle between poses
+			isShift = mods & GLFW_MOD_SHIFT;
+			if (isShift == GLFW_MOD_SHIFT ) { // Togle between poses
 				MODE = PLAYBACK_MOD;
 			}
 			else {
@@ -305,36 +301,60 @@ void rotate_cam_key_callback(GLFWwindow* window, int key, int scancode, int acti
 		case GLFW_KEY_T:
 			isToggled = !isToggled; //flip toggle status
 			if (isToggled) {
-				oldCameraPos = cameraPos;
-				oldCameraFront = cameraFront;
+				//oldCameraPos = cameraPos;
+				//oldCameraFront = cameraFront;
 			}
 			else { //toggle mode is disabled - restore the oldest camera config in cam-view before toggle was initiated.
-				cameraPos = oldCameraPos;
-				oldCameraFront = cameraFront;
+				//cameraPos = oldCameraPos;
+				//oldCameraFront = cameraFront;
 			}
 			scene.flipToggleState();
 			break;
 		case GLFW_KEY_B:
 			if(MODE == REC_MOD){
-				scene.addCamPosRenderVAO(cameraPos, cameraFront);
+				auto v = viewCam.getCamPos();
+				auto f = viewCam.getCamFront();
+				scene.addCamPosRenderVAO(v, f);
 			}
 			break;
 		case GLFW_KEY_P:
 			if (MODE == PICKING_MOD)
 			{
 				MODE = DEF_MOD;
-			}else
+			}else{
 				MODE = PICKING_MOD;
+				mySolver = PoseEstSolver(SCR_WIDTH / 2, SCR_HEIGHT, viewCam.getFOV(), NEAR);
+			}
+				
 			break;
 		case GLFW_KEY_C:
-			if (mySolver.shouldSolve())
+			if (MODE != DIFF_MOD)
 			{
-				MODE = DIFF_MOD;
+				if (mySolver.shouldSolve())
+				{
+					MODE = DIFF_MOD;
+					//save old campose
+					poseEstimationData ped = mySolver.solve();
+					globCam.setCamPos(ped.camTranslation);
+					globCam.setCamFront(ped.camRotation);
+					globCam.setFOV(viewCam.getFOV());
+				}
+				else
+				{
+					std::cout << "can't solve cam pos, not enough points\n";
+				}
 			}
 			else
 			{
-				std::cout << "can't solve cam pos, not enough points\n";
+				MODE = DEF_MOD;
+				pickedPosVec.clear();
+				mySolver.clear();
+				globCam.setCamPos(initialPos);
+				globCam.setCamFront(initialFront);
+				globCam.setFOV(DEFAULT_FOV);
 			}
+			break;
+		case GLFW_KEY_I:
 			break;
 		}
 	}
@@ -343,7 +363,8 @@ void rotate_cam_key_callback(GLFWwindow* window, int key, int scancode, int acti
 	front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
 	front.y = sin(glm::radians(pitch));
 	front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
-	cameraFront = glm::normalize(front);
+	viewCam.normalizeFrom();
+	//cameraFront = glm::normalize(front);
 
 }
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes

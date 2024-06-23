@@ -19,10 +19,14 @@ bool PoseEstSolver::addPose(glm::vec2 pos)
 
 
 
-PoseEstSolver::PoseEstSolver( int window_width,  int window_height, float bottom, float top, float right, float left, float near)
+PoseEstSolver::PoseEstSolver(int window_width, int window_height, float vertical_fov, float near)
 {
-	focal_x =(((float)window_width) / (right - left)  ) * near; //near=f
-	focal_y =( ((float)window_height)  / (top - bottom) ) * near;
+	//calculations for symmetrical frustum that is calculated deciding the vertical FOV and aspect ratio to measure TOP and RIGHT planes
+	float aspect = (float)window_width / (float)window_height;
+	float top = glm::tan(glm::radians(vertical_fov / 2)) * near;
+	float right = top * aspect;
+	focal_x =(((float)window_width) / (right*2)) * near; //near=f
+	focal_y =(((float)window_height)  / (top*2)) * near;
 	this->window_height = (float)window_height;	
 	c_x = (double) window_width / 2;
 	c_y = (double)window_height / 2;
@@ -31,6 +35,25 @@ PoseEstSolver::PoseEstSolver( int window_width,  int window_height, float bottom
 								0,     0,         1 });
 	std::cout << "IntrinsicMat = " << std::endl << " " << intrinsicMat << std::endl << std::endl;
 
+}
+
+PoseEstSolver PoseEstSolver::operator=(const PoseEstSolver& other)
+{
+	if (this == &other) {
+		return *this; // Check for self-assignment
+	}
+
+	// Copy each member
+	poseVec3D = other.poseVec3D;
+	poseVec2D = other.poseVec2D;
+	focal_x = other.focal_x;
+	focal_y = other.focal_y;
+	intrinsicMat = other.intrinsicMat;
+	c_x = other.c_x;
+	c_y = other.c_y;
+	window_height = other.window_height;
+
+	return *this;
 }
 
 poseEstimationData PoseEstSolver::solve()
@@ -76,6 +99,12 @@ poseEstimationData PoseEstSolver::solve()
 bool PoseEstSolver::shouldSolve()
 {
 	return poseVec2D.size() == 4 && poseVec3D.size() ==4;
+}
+
+void PoseEstSolver::clear()
+{
+	this->poseVec2D.clear();
+	this->poseVec3D.clear();
 }
 
 
