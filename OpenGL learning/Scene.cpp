@@ -1,6 +1,6 @@
 #include "Scene.h"
 
-
+#define GREEN 1
 
 
 Scene::Scene() {
@@ -98,6 +98,26 @@ void Scene::addCamPosRenderVAO(glm::vec3 & cameraPos, glm::vec3 & cameraFrontVec
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 	this->camRenderVAOs.push_back(camVao);
+}
+
+void Scene::computeCamPose(PoseEstSolver slv,int width,int height)
+{
+	int bSize = (width/2) * height * 4;
+	GLubyte* buffer = new GLubyte[bSize];
+	glReadPixels(width / 2, 0, width / 2, height, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
+	for (int y = 0; y < height; y++)
+	{
+		for (int x = 0; x < width/2; x+=4)
+		{
+			float n = buffer[x + GREEN + y * (int)(width / 2)] / 255.0f;
+			auto it = markers.find(n);
+			if (it != markers.end())
+			{
+				slv.addPose(glm::vec2(x, y));
+				slv.addPose(glm::vec3(it->second));
+			}
+		}
+	}
 }
 
 void Scene::incToggleIndex()

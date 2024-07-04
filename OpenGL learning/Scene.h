@@ -13,6 +13,7 @@
 #include <glm/gtx/normal.hpp>
 
 #include "Shader.h"
+#include "PoseEstSolver.h"
 #include <map>
 typedef std::string str;
 
@@ -48,6 +49,7 @@ public:
 	//void record();
 	void addVAOconfig(unsigned int vaoRef); //add a VAO object ref to the vao_vec vector, to be used at render call
 	void addCamPosRenderVAO(glm::vec3 &cameraPos, glm::vec3& cameraFrontVec);
+	void computeCamPose(PoseEstSolver slv, int width, int height);
 	void incToggleIndex();
 	void decToggleIndex();
 	void flipToggleState();
@@ -64,6 +66,7 @@ private:
 	int toggleIndex;
 	//Shader toggleShader;
 	std::vector<struct camSnapshotData*> camSnapshotsVec;
+	std::vector<struct camSnapshotData*> computedCamPoseVec;
 	std::map<float,glm::vec3> markers;
 };
 

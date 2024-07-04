@@ -8,7 +8,6 @@
 #include "stb_image.h"
 #include "Shader.h"
 #include "Map.h"
-#include "PoseEstSolver.h"
 #include "Camera.h"
 //these headers are for mathemtical calculations (albeit for simple things you can use arrays of float and use a simple math library..)
 #include <glm/glm.hpp>
@@ -299,6 +298,7 @@ void rotate_cam_key_callback(GLFWwindow* window, int key, int scancode, int acti
 				auto v = viewCam.getCamPos();
 				auto f = viewCam.getCamFront();
 				scene.addCamPosRenderVAO(v, f);
+				scene.computeCamPose(PoseEstSolver(SCR_WIDTH / 2, SCR_HEIGHT, viewCam.getFOV(), NEAR));
 			}
 			break;
 		case GLFW_KEY_P:
