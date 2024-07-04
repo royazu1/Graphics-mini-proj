@@ -129,6 +129,11 @@ int Scene::getToggleIndex()
 	return toggleIndex;
 }
 
+void Scene::addMarker(const float c, const glm::vec3 p)
+{
+	markers[c] = p;
+}
+
 void Scene::storeVertexData(Vertex* vertex, glm::vec3 pos, glm::vec3 color)
 {
 	vertex->vCoords[0] = pos.x;

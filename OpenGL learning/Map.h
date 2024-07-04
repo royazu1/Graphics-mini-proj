@@ -38,7 +38,7 @@ public:
 
 
 	void createMesh(int res, Scene & scene);
-	void create3DMeshData();
+	void create3DMeshData(Scene & scene);
 	void cleanMeshData();
 };
 

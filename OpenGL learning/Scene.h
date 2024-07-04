@@ -13,7 +13,7 @@
 #include <glm/gtx/normal.hpp>
 
 #include "Shader.h"
-
+#include <map>
 typedef std::string str;
 
 
@@ -53,6 +53,7 @@ public:
 	void flipToggleState();
 	std::vector<struct camSnapshotData*> getCamVec();
 	int getToggleIndex();
+	void addMarker(const float c, const glm::vec3 p);//green color ,position
 private:
 	//Camera cam;
 	std::vector<unsigned int> VAO_vec;
@@ -63,5 +64,6 @@ private:
 	int toggleIndex;
 	//Shader toggleShader;
 	std::vector<struct camSnapshotData*> camSnapshotsVec;
+	std::map<float,glm::vec3> markers;
 };
 

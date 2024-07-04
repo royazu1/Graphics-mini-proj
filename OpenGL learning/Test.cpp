@@ -117,7 +117,7 @@ int main()
 
 	Map myMap = Map("heatmap.jpg");
 
-	myMap.create3DMeshData();
+	myMap.create3DMeshData(scene);
 	myMap.createMesh(0, scene); //RES is unusued for now
 
 	glm::vec3 pickedColorArr[3];
