@@ -57,7 +57,7 @@ float yaw = -90.0f;	// yaw is initialized to -90.0 degrees since a yaw of 0.0 re
 float pitch = 0.0f;
 float lastX = (float)SCR_WIDTH / 2.0;
 float lastY = (float)600.0 / 2.0;
-float fov = 45.0f;
+float oldFov = 45.0f;
 std::vector<glm::uvec2> pickedPosVec;
 
 bool isToggled = false;
@@ -123,7 +123,7 @@ int main()
 	pickedColorArr[0] = glm::vec3(1.0f, 1.0f, 0.0f);
 	pickedColorArr[1] = glm::vec3(0.0f, 1.0f, 0.0f);
 	pickedColorArr[2] = glm::vec3(0.0f, 0.0f, 1.0f);
-
+	int idx;
 
 	//enable depth testing - check the effect of reading from the depth buffer
 	glEnable(GL_DEPTH_TEST);
@@ -136,13 +136,13 @@ int main()
 		myShader.useProgram();
 		//glBindVertexArray(vao);
 
-		if (isToggled || MODE == PLAYBACK_MOD) { //render according to currently toggled cam location
-			int idx = scene.getToggleIndex();
+		if (isToggled || MODE == PLAYBACK_MOD || MODE == DIFF_MOD) { //render according to currently toggled cam location
+			idx = scene.getToggleIndex();
 			struct camSnapshotData camData = *scene.getCamVec()[idx];
 			viewCam.setCamPos(camData.cameraPos);
 			viewCam.setCamFront(camData.camDirection);
-			//cameraPos = camData.cameraPos;
-			//cameraFront = camData.camDirection;
+			viewCam.setFOV(camData.fov);
+
 		}
 
 		glm::mat4 projection = viewCam.getProjectionMatrix();
@@ -155,7 +155,17 @@ int main()
 		//printf("drawn\n");
 
 		//glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
-
+		if(MODE == DIFF_MOD){
+			idx = scene.getToggleIndex();
+			struct camSnapshotData camData = *scene.getCompPoseVec()[idx];
+			globCam.setCamPos(camData.cameraPos);
+			globCam.setCamFront(camData.camDirection);
+			globCam.setFOV(camData.fov);
+		}else{
+			globCam.setCamPos(initialPos);
+			globCam.setCamFront(initialFront);
+			globCam.setFOV(DEFAULT_FOV);
+		}
 		projection = globCam.getProjectionMatrix();
 		camSpaceTrans = globCam.getModelViewMat();
 		myShader.setMatrixUniform("camTransMatrix", camSpaceTrans);
@@ -164,12 +174,12 @@ int main()
 		glViewport(0, 0, SCR_WIDTH / 2, SCR_HEIGHT); //global view rendering
 		scene.Draw(GLOBAL_VIEW, myShader);
 
-		if (pixelPicked && PICKING_MOD) { //draw to the pixel location that was picked by the mouse - should be done right before swapping color buffs
+		if (pixelPicked && PICKING_MOD || pickedPosVec.size() > 0) { //draw to the pixel location that was picked by the mouse - should be done right before swapping color buffs
 			for (int i = 0; i < pickedPosVec.size();i++) {
 				glm::uvec2 currPickedPos = pickedPosVec[i];
 				glm::vec3 pickedColor = pickedColorArr[i];
 				glEnable(GL_SCISSOR_TEST);
-				glScissor(currPickedPos.x, currPickedPos.y, 6, 6);
+				glScissor(currPickedPos.x+(SCR_WIDTH/2), currPickedPos.y, 6, 6);
 				glClearColor(pickedColor.r, pickedColor.g, pickedColor.b, 1.0f);
 				glClear(GL_COLOR_BUFFER_BIT);
 				glDisable(GL_SCISSOR_TEST);
@@ -212,14 +222,6 @@ void mouse_picking_callback(GLFWwindow* window, int button, int action, int mods
 		pickedPosVec.push_back(glm::uvec2(pickingX, pickingY));
 		pixelPicked = true;
 		picked++;
-
-		//NO NEED ANYMORE!!
-		/*if (mySolver.shouldSolve()) {
-			struct poseEstimationData sol = mySolver.solve();
-			printf("sol-camPos: (x,y,z)=(%f,%f,%f)\n", sol.camTranslation.x, sol.camTranslation.y, sol.camTranslation.z);
-			printf("sol-camDir: (x,y,z)=(%f,%f,%f)\n", sol.camRotation.x, sol.camRotation.y, sol.camRotation.z);
-			scene.addCamPosRenderVAO(sol.camTranslation, sol.camRotation);
-		}*/
 	}
 }
 void cursor_pos_cv(GLFWwindow* window, double pickingX, double pickingY) {
@@ -227,7 +229,6 @@ void cursor_pos_cv(GLFWwindow* window, double pickingX, double pickingY) {
 		lastX = pickingX;
 		lastY = pickingY;
 	}
-
 }
 
 void rotate_cam_key_callback(GLFWwindow* window, int key, int scancode, int action, int mods) {
@@ -235,7 +236,7 @@ void rotate_cam_key_callback(GLFWwindow* window, int key, int scancode, int acti
 	if (action == GLFW_PRESS) {
 		switch (key) {
 		case GLFW_KEY_RIGHT: //perform yaw - clockwise say 6 degrees, or if toggle is enabled, move between the camera poses
-			if (MODE == PLAYBACK_MOD) {
+			if (MODE == PLAYBACK_MOD || MODE == DIFF_MOD) {
 				scene.incToggleIndex();
 			}
 			else {
@@ -244,7 +245,7 @@ void rotate_cam_key_callback(GLFWwindow* window, int key, int scancode, int acti
 			//	if (yaw >= 89.0f) { yaw = 89.0f; }
 			break;
 		case GLFW_KEY_LEFT: //perform yaw - counter-clockwise
-			if (MODE == PLAYBACK_MOD) {
+			if (MODE == PLAYBACK_MOD || MODE == DIFF_MOD) {
 				scene.decToggleIndex();
 			}
 			else {
@@ -270,12 +271,23 @@ void rotate_cam_key_callback(GLFWwindow* window, int key, int scancode, int acti
 		
 			//scene.addCamPosRenderVAO(cameraPos, cameraFront);
 			isShift = mods & GLFW_MOD_SHIFT;
-			if (isShift == GLFW_MOD_SHIFT) { // Togle between poses
+			if (isShift == GLFW_MOD_SHIFT) { // Togle between poses SHIFT-R
 				scene.flipToggleState();
 				MODE = PLAYBACK_MOD;
+				oldCameraFront = viewCam.getCamFront();
+				oldCameraPos = viewCam.getCamPos();
+				oldFov = viewCam.getFOV();
+
 			}
-			else { 
+			else { //from PLAYBACK back to RECORD
+				
+				if (MODE == PLAYBACK_MOD) {
+					viewCam.setCamFront(oldCameraFront);
+					viewCam.setCamPos(oldCameraPos);
+					viewCam.setFOV(oldFov);
+				}
 				MODE = REC_MOD;
+				//reset to the last pose that was issued when we moved from RECORD to PLAYBACK
 			}
 			break;
 		case GLFW_KEY_T:
@@ -297,8 +309,8 @@ void rotate_cam_key_callback(GLFWwindow* window, int key, int scancode, int acti
 				printf("camDir: (x,y,z)=(%f,%f,%f)\n", viewCam.getCamFront().x, viewCam.getCamFront().y, viewCam.getCamFront().z);
 				auto v = viewCam.getCamPos();
 				auto f = viewCam.getCamFront();
-				scene.addCamPosRenderVAO(v, f);
-				scene.computeCamPose(PoseEstSolver(SCR_WIDTH / 2, SCR_HEIGHT, viewCam.getFOV(), NEAR));
+				scene.addCamPosRenderVAO(v, f, viewCam.getFOV());
+				scene.computeCamPose(PoseEstSolver(SCR_WIDTH / 2, SCR_HEIGHT, viewCam.getFOV(), NEAR), SCR_WIDTH/2, SCR_HEIGHT, pickedPosVec, viewCam, viewCam.getFOV());
 			}
 			break;
 		case GLFW_KEY_P:
@@ -313,9 +325,11 @@ void rotate_cam_key_callback(GLFWwindow* window, int key, int scancode, int acti
 
 			break;
 		case GLFW_KEY_C:
-			if (MODE != DIFF_MOD)
+			if (MODE == PLAYBACK_MOD)
 			{
-				if (mySolver.shouldSolve())
+				MODE = DIFF_MOD;
+				scene.flipCamPosRender();
+				/*if (mySolver.shouldSolve())
 				{
 					MODE = DIFF_MOD;
 					//save old campose
@@ -343,8 +357,14 @@ void rotate_cam_key_callback(GLFWwindow* window, int key, int scancode, int acti
 				mySolver.clear();
 				globCam.setCamPos(initialPos);
 				globCam.setCamFront(initialFront);
-				globCam.setFOV(DEFAULT_FOV);
+				globCam.setFOV(DEFAULT_FOV);*/
 			}
+			else if (MODE == DIFF_MOD) {
+
+				MODE = PLAYBACK_MOD;
+				scene.flipCamPosRender();
+			}
+
 			break;
 		case GLFW_KEY_I: //zoom in - i.e shorten top plane of frustum by diminishing the vert_FOV angle
 			viewCam.modifyFOV(-FOV_DELTA);

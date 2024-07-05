@@ -1,11 +1,13 @@
 #include "Scene.h"
-
+#include "stb_image_write.h"
+#define RED 0
 #define GREEN 1
-
+#define BLUE 2
 
 Scene::Scene() {
 	vecSize = 0;
 	toggleIndex = 0;
+	renderCamPos = true;
 	isToggled = false;
 }
 
@@ -20,8 +22,8 @@ void Scene::Draw(int type, Shader & drawingShader) // 0 for global view, 1 for c
 		glBindVertexArray(0);
 	}
 
-	//glPointSize(10.0);//
-	for (int j = 0; j < camRenderVAOs.size() && type == GLOBAL_VIEW; j++) { //draw only in global view
+	glPointSize(3.0);//
+	for (int j = 0; renderCamPos && j < camRenderVAOs.size() && type == GLOBAL_VIEW; j++) { //draw only in global view, and only when NOT in flight compute mode!
 		unsigned int currCamPosVao = camRenderVAOs[j];
 		glBindVertexArray(currCamPosVao);
 		if (j != toggleIndex) {
@@ -38,6 +40,12 @@ void Scene::Draw(int type, Shader & drawingShader) // 0 for global view, 1 for c
 		glBindVertexArray(0); //
 
 	}
+
+	for (int k = 0; k < markerVAOs.size();k++) {
+		unsigned int currMarkerVao = markerVAOs[k];
+		glBindVertexArray(currMarkerVao);
+		glDrawArrays(GL_POINTS, 0, 1);
+	}
 }
 
 void Scene::addVAOconfig(unsigned int vaoRef)
@@ -46,13 +54,19 @@ void Scene::addVAOconfig(unsigned int vaoRef)
 	vecSize++;
 }
 
-void Scene::addCamPosRenderVAO(glm::vec3 & cameraPos, glm::vec3 & cameraFrontVec) //make a pefect triangle with camera pos at the front vertex
+void Scene::addMarkerVAO(unsigned int vaoRef)
+{
+	this->markerVAOs.push_back(vaoRef);
+}
+
+void Scene::addCamPosRenderVAO(glm::vec3 & cameraPos, glm::vec3 & cameraFrontVec,float fov) //make a pefect triangle with camera pos at the front vertex
 {
 
 	//store cam snapshot data in the vector
 	struct camSnapshotData * currCamSnap= new struct camSnapshotData;
 	currCamSnap->camDirection = cameraFrontVec;
 	currCamSnap->cameraPos = cameraPos;
+	currCamSnap->fov = fov;
 	camSnapshotsVec.push_back(currCamSnap);
 	//
 
@@ -100,24 +114,76 @@ void Scene::addCamPosRenderVAO(glm::vec3 & cameraPos, glm::vec3 & cameraFrontVec
 	this->camRenderVAOs.push_back(camVao);
 }
 
-void Scene::computeCamPose(PoseEstSolver slv,int width,int height)
+void Scene::computeCamPose(PoseEstSolver slv,int width,int height, std::vector<glm::uvec2>& pickedPos, Camera& viewCam,float fov) //NOTE - width is the half-viewport width so no need to div by 2!
 {
-	int bSize = (width/2) * height * 4;
+	std::set<unsigned char> chosenColorsSet;
+	int count = 0;
+	int maxGreen = 0;
+	int bSize = width * height * 4; //4 chans rgba
 	GLubyte* buffer = new GLubyte[bSize];
-	glReadPixels(width / 2, 0, width / 2, height, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
+	glReadPixels(width, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, buffer);
+	stbi_write_png("fml.png", width, height, 4, buffer, width  * 4);
 	for (int y = 0; y < height; y++)
 	{
-		for (int x = 0; x < width/2; x+=4)
+		for (int x = 0; x < width; x++)
 		{
-			float n = buffer[x + GREEN + y * (int)(width / 2)] / 255.0f;
-			auto it = markers.find(n);
-			if (it != markers.end())
+			GLubyte red = buffer[(x*4) + (y * width* 4)];
+			GLubyte green = buffer[(x*4) + GREEN + (y * width * 4)];
+			GLubyte blue = buffer[(x*4) + BLUE + (y * width * 4)];
+			//printf("pix: (x,y)=(%d,%d) , (r,g,b)=(%d,%d,%d) \n",x% (width/2), y, red, green, blue);
+
+			
+			if (slv.shouldSolve()) {
+				printf("Found 4 markers! finding solution\n");
+				goto Solve; //found 4 markers - enough for pnp-solve
+			}
+
+			bool notWhite = red != 255 && green != 255 && blue != 255;
+			if (notWhite && red < 2 && blue < 2)
 			{
+			float jump = 4.0f;
+			int fGreen = floor(green);
+			float freq = green - fGreen;
+			if (fGreen % 4 == 0) green = fGreen;
+			else green = fGreen + (fGreen % 4);
+			auto it = markers.find((unsigned char)roundf(green));
+
+			if (it != markers.end() && chosenColorsSet.find(green) == chosenColorsSet.end()) {
+				chosenColorsSet.insert(green);
+				printf("found marker! Red=%d Green=%d Blue=%d 2D (x,y)= (%d,%d) , 3D (x,y,z)=(%f,%f,%f)\n", (int)red, (int)green, (int)blue, x, y, glm::vec3(it->second).x, glm::vec3(it->second).y, glm::vec3(it->second).z);
 				slv.addPose(glm::vec2(x, y));
-				slv.addPose(glm::vec3(it->second));
+				//CHECK THE UNPROJECTION HERE!
+				unsigned int depth = 0;
+				unsigned int maxInt = (1 << 32) - 1;
+				glReadPixels(x + width, y, 1, 1, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT, &depth);
+				glm::vec3 unproj_pixel = glm::unProjectNO(glm::vec3(x + width, y, (float)depth / (float)maxInt), viewCam.getModelViewMat(), viewCam.getProjectionMatrix(), glm::vec4(width, 0, width, height));
+				printf("real pose pix: (x,y,z)=(%f,%f,%f)\n", unproj_pixel.x, unproj_pixel.y, unproj_pixel.z);
+				//pickedPos.push_back(glm::uvec2(x, y));
+				slv.addPose(glm::vec3(it->second)); //??
+				break;
+			}
 			}
 		}
 	}
+	printf("count=%d ,max=%d\n", count,maxGreen); //debug
+
+Solve:
+	camSnapshotData* compPose = new camSnapshotData;
+	if (slv.shouldSolve()) {
+		poseEstimationData sol = slv.solve();
+		compPose->camDirection = sol.camRotation;
+		compPose->cameraPos = sol.camTranslation;
+		compPose->fov = fov;
+		printf("Sol: camPos:(x,y,z)=(%f,%f,%f)\n", compPose->cameraPos.x, compPose->cameraPos.y, compPose->cameraPos.z);
+		printf("Sol: camDir:(x,y,z)=(%f,%f,%f)\n", compPose->camDirection.x, compPose->camDirection.y, compPose->camDirection.z);
+	}
+	else { // found less than 4 markers - can't solve, maybe display in that case the background WHITE color..
+		printf("Can't solve for this camera view pose! not enough markers from that view!\n");
+		compPose->camDirection=glm::vec3(0, 0, 1); //look out of the screen so view will be WHITE
+		compPose->cameraPos= glm::vec3(0, 0, 0); //
+	}
+
+	this->computedCamPoseVec.push_back(compPose);
 }
 
 void Scene::incToggleIndex()
@@ -144,6 +210,11 @@ std::vector<struct camSnapshotData*> Scene::getCamVec() {
 	return this->camSnapshotsVec;
 }
 
+std::vector<struct camSnapshotData*> Scene::getCompPoseVec()
+{
+	return this->computedCamPoseVec;
+}
+
 int Scene::getToggleIndex()
 {
 	return toggleIndex;
@@ -152,6 +223,11 @@ int Scene::getToggleIndex()
 void Scene::addMarker(const float c, const glm::vec3 p)
 {
 	markers[c] = p;
+}
+
+void Scene::flipCamPosRender()
+{
+	renderCamPos = !renderCamPos;
 }
 
 void Scene::storeVertexData(Vertex* vertex, glm::vec3 pos, glm::vec3 color)

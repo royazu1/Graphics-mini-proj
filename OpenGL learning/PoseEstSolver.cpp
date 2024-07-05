@@ -92,6 +92,7 @@ poseEstimationData PoseEstSolver::solve()
 	sol.camRotation = glm::normalize(glm::vec3(-camFront.val[0], camFront.val[1], -camFront.val[2]));
 	//sol.camRotation = glm::normalize(glm::vec3(rotMat.col(1), -rotMat.col(1), -rotMat.col(1)));
 	sol.camTranslation = glm::vec3(campos.val[0], -campos.val[1], -campos.val[2]);
+	//printf("SolvePnp pos= (x,y,z)=(%f,%f,%f)\n", campos.val[0], campos.val[1], campos.val[2]);
 	//sol.camTranslation = glm::vec3(solution[1].val[0], -solution[1].val[1], -solution[1].val[2]);
 	return sol;
 }
